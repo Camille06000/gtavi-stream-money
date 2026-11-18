@@ -70,6 +70,24 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     return hdr + "\n".join(ev) + "\n"
 
 
+CAP_Y = {"fill": 1380, "blur": 1460, "facecam": 1120}
+
+
+def video_filter(layout, cam, ass):
+    """Layout + burned-caption filter graph ending in [vo]. Reused by translate.py."""
+    if layout == "fill":
+        v = f"[0:v]scale=-2:{H},crop={W}:{H}[v]"
+    elif layout == "blur":
+        v = (f"[0:v]split[a][b];[a]scale=-2:{H},crop={W}:{H},boxblur=24:2,eq=brightness=-0.08[bg];"
+             f"[b]scale={W}:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2-80[v]")
+    else:
+        x, y, w, h = map(float, cam.split(":"))
+        v = (f"[0:v]split[a][b];[a]crop=iw*{w}:ih*{h}:iw*{x}:ih*{y},scale={W}:{int(H * 0.38)}:force_original_aspect_ratio=increase,"
+             f"crop={W}:{int(H * 0.38)}[cam];[b]scale=-2:{H - int(H * 0.38)},crop={W}:{H - int(H * 0.38)}[game];[cam][game]vstack[v]")
+    sub = str(ass).replace("\\", "/").replace(":", "\\:")
+    return v + f";[v]fps=30,subtitles='{sub}'[vo]"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("job"); ap.add_argument("--pick", type=int, default=1)
@@ -83,20 +101,10 @@ def main():
     s0 = a.start if a.start is not None else pick["start"]; e0 = a.end if a.end is not None else pick["end"]
     words = load_json(d / "transcript.json")
     out = d / "edits"; out.mkdir(exist_ok=True)
-    cap_y = {"fill": 1380, "blur": 1460, "facecam": 1120}[a.layout]
+    cap_y = CAP_Y[a.layout]
     ass = out / f"clip_{a.pick}.ass"
     ass.write_text(build_ass(words, s0, e0, a.hook, a.credit, cap_y), encoding="utf-8")
-    if a.layout == "fill":
-        v = f"[0:v]scale=-2:{H},crop={W}:{H}[v]"
-    elif a.layout == "blur":
-        v = (f"[0:v]split[a][b];[a]scale=-2:{H},crop={W}:{H},boxblur=24:2,eq=brightness=-0.08[bg];"
-             f"[b]scale={W}:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2-80[v]")
-    else:
-        x, y, w, h = map(float, a.cam.split(":"))
-        v = (f"[0:v]split[a][b];[a]crop=iw*{w}:ih*{h}:iw*{x}:ih*{y},scale={W}:{int(H * 0.38)}:force_original_aspect_ratio=increase,"
-             f"crop={W}:{int(H * 0.38)}[cam];[b]scale=-2:{H - int(H * 0.38)},crop={W}:{H - int(H * 0.38)}[game];[cam][game]vstack[v]")
-    sub = str(ass).replace("\\", "/").replace(":", "\\:")
-    v += f";[v]fps=30,subtitles='{sub}'[vo]"
+    v = video_filter(a.layout, a.cam, ass)
     mp4 = out / f"clip_{a.pick}.mp4"
     run([tool("ffmpeg"), "-y", "-v", "error", "-ss", f"{s0:.2f}", "-to", f"{e0:.2f}", "-i", c["source"],
          "-filter_complex", v, "-map", "[vo]", "-map", "0:a?", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11",

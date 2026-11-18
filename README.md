@@ -56,6 +56,10 @@ No income is promised. Your result depends on speed, picks and hooks, and the sc
 | `clip-cutter` | 1080x1920 clip: word-by-word captions, hook box, credit line, -14 LUFS. Fill, blurred background or facecam on top |
 | `hook-writer` | 3 hook options per clip |
 | `rule-check` | Length, format, credit, hashtags and banned content checked before you post |
+| `multilang` | One clip in 5 languages: translated word-by-word captions and hook in ES, PT, DE, RU, optional stock-voice hook. Non-English GTA pages are almost empty |
+| `questions-to-posts` | Pulls repeated questions from GTA subreddits and your comments, turns the answered ones into HOW TO posts |
+| `secrets-map` | Builds a database of hidden spots, money, cars and collectibles from clips, with timestamp and credit. Verified ones become evergreen tip posts |
+| `cheat-codes` | All reported GTA 6 cheat codes with unlock tasks and sources, turned into a 4-slide cheat carousel |
 | `playbook` | Your full daily routine and launch-day plan |
 | `learning-loop` | Scoreboard, one test per day, payouts from real numbers only |
 
