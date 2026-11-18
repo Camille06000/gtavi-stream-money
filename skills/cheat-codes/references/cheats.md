@@ -30,13 +30,22 @@ Status as of Nov 18, 2026: codes reported by pre-launch guides (GameSpot, Red Bu
 | MTL Pumper (spawn) | ← ↑ → ↓ ← → → ↑ | Discover it in the Progress menu | reported |
 | HVY Bulldozer (spawn) | ← ↑ → ↓ ← → → ↓ | Discover it in the Progress menu | reported |
 | Cataclysm (filter) | ↓ ↓ ↑ → → ↑ ← ← → → | Discover Martha's Vamos in the Progress menu | reported |
-| Dollhouse (filter) | ↓ ↓ ↑ → → ↑ ← ← ↓ → | Spend 8 hours with your partner | unconfirmed |
-| Faded Glory (filter) | ↓ ↓ ↑ → → ↑ ← ← ← → | Rob 50 stores with your partner | unconfirmed |
+| Dollhouse (filter: vivid colors, narrow aspect ratio) | ↓ ↓ ↑ → → ↑ ← ← ↓ → | Spend 8 hours with your partner | reported (Stupid Dope) |
+| Faded Glory (filter: color CRT TV look) | ↓ ↓ ↑ → → ↑ ← ← ← → | Rob 50 stores with your partner | reported (GameSpot) |
 
-Statuses: **reported** = matches the published guides; **unconfirmed** = not found in any guide, never post it; **verified** = tested in the game after launch (add who and when).
+Statuses: **reported** = listed in at least one published guide; **unconfirmed** = not found in any guide, never post it; **verified** = tested in the game after launch (add who and when).
+
+## Fake codes going around (never post these)
+
+A viral image titled "GTA VI cheat codes - CRACKED BY FABLE 5.2" mixes real codes with invented ones.
+
+- "Raise Wanted Level": no cheat by that name. The reported cheat is Raise Heat Level: ← ↓ → ↓ ↑ ↓ ↑.
+- Incendiary Ammo, Hauners Rhino tank, Hauners P-996 Lazer, Golden Hour filter, Dark Mirror filter: the cheats are in the guides, but every guide marks their code as not found or TBD. Any code shown for them is a guess.
+- Inflatable Flamingo: only an unlock task appears in one guide (AlcastHQ: destroy 50 cocaine flamingos), no code. Any code shown for it is a guess.
 
 ## Sources
 
 - GameSpot: https://www.gamespot.com/articles/all-gta-6-cheats-and-how-to-unlock-them/
 - Red Bull: https://www.redbull.com/int-en/gta-6-cheat-codes
 - Insider Gaming: https://insider-gaming.com/all-gta-6-cheats-best-grand-theft-auto-6-cheat-codes/
+- Stupid Dope: https://stupiddope.com/2026/11/gta-vi-cheat-codes-for-ps5-all-61-cheats-every-confirmed-button-combo-and-the-unlock-rules-that-change-everything/

@@ -19,6 +19,7 @@ Style: dark background, one accent color, arrows as rounded key caps, the page h
 ## Rules
 
 - Post only codes with status `reported` or `verified`. Never post `unconfirmed` ones.
+- Before posting any cheat code, check that it appears in at least one guide listed in the reference. If a code is not listed, write "code not found yet" and never invent the arrows. Never repost codes from the "Fake codes going around" list.
 - Until the codes are verified in the game, say "reported" in the caption, not "confirmed".
 - No mod menus, money glitches, GTA Online cheats or anything that breaks the rules of online play.
 
