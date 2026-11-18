@@ -16,6 +16,16 @@ Write 3 options per clip. Sentence case. Short: 3 to 9 words fit the hook box.
 - Question: "Would you survive this chase?"
 - Naming the streamer or creator when they are known: "Even [name] didn't see this coming"
 
+## Reaction titles (twitch-reaction layout)
+
+For a streamer's reaction clip the title sits on the seam between face and game for the whole clip. Formula: streamer name + reaction verb + what they reacted to, with CAPS on 2 or 3 key words.
+
+- "Speed REALIZED why GTA 6 took ROCKSTAR 13 YEARS"
+- "Kai LOST IT when the cops showed up in GTA 6"
+- "Fighting Cops in GTA 6" (outlined style: short, 3 to 6 words)
+
+Describe what happens on screen. Never put words in the streamer's mouth: no quotes they did not say, no made-up opinions. Emojis are optional, at most 2.
+
 ## What does not work
 
 - Bare labels: "GTA 6 clip", "Funny moment"

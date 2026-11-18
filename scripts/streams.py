@@ -1,7 +1,7 @@
 """Find live streams about a topic, ranked by concurrent viewers.
 
 usage: python streams.py --query "gta 6" --limit 20 --out streams.md
-YouTube always. Twitch only if TWITCH_CLIENT_ID and TWITCH_TOKEN are set. Kick is tried once, skipped silently on failure.
+YouTube always. Twitch always (Helix if TWITCH_CLIENT_ID and TWITCH_TOKEN are set, else keyless public GQL). Kick is tried once, skipped silently on failure.
 Viewer counts are exactly what the platform returned at run time.
 """
 import argparse, json, os, sys, time
@@ -55,10 +55,23 @@ def youtube(query, limit):
     return out
 
 
+def twitch_nokey(game="Grand Theft Auto VI", limit=20):
+    """No account/API key: Twitch public web GQL (see twitch.py)."""
+    import twitch as tw
+    try:
+        rows = tw.top_streams(game, limit)
+    except Exception as e:
+        print(f"twitch (no key) failed: {e}", file=sys.stderr)
+        return []
+    now = time.time()
+    return [{"platform": "Twitch", "channel": r["login"], "title": r["title"], "url": r["url"], "viewers": r["viewers"],
+             "live_for": fmt_dur(now - tw.started_ts(r["created_at"])) if tw.started_ts(r["created_at"]) else ""} for r in rows]
+
+
 def twitch(query):
     cid, tok = os.environ.get("TWITCH_CLIENT_ID"), os.environ.get("TWITCH_TOKEN")
     if not (cid and tok):
-        return None
+        return twitch_nokey()
     import requests
     h = {"Client-Id": cid, "Authorization": f"Bearer {tok}"}
     try:
@@ -106,6 +119,8 @@ def main():
     a = ap.parse_args()
     sections = [("YouTube", youtube(a.query, a.limit))]
     t = twitch(a.query)
+    if t:
+        t = sorted(t, key=lambda r: r["viewers"] or -1, reverse=True)[:a.limit]
     if t is not None:
         sections.append(("Twitch", t))
     k = kick(a.query)

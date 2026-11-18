@@ -4,12 +4,12 @@ Entries live in secrets.csv. Nothing is posted unless its status is "verified".
 Exploits, money glitches, duplication tricks, leaks and "play early" content are never collected.
 
 usage:
-  python secrets.py scan jobs/<id>                 propose unverified entries from the transcript
-  python secrets.py add --name N --where W --how H --category place --channel C --url U
-  python secrets.py verify <id> --by "played it myself on 2026-11-20"
-  python secrets.py wrong <id>
-  python secrets.py posts --out secrets-posts.md   tip posts + carousel from VERIFIED entries only
-  python secrets.py map --out secrets.md           table grouped by category
+  python secrets_map.py scan jobs/<id>                 propose unverified entries from the transcript
+  python secrets_map.py add --name N --where W --how H --category place --channel C --url U
+  python secrets_map.py verify <id> --by "played it myself on 2026-11-20"
+  python secrets_map.py wrong <id>
+  python secrets_map.py posts --out secrets-posts.md   tip posts + carousel from VERIFIED entries only
+  python secrets_map.py map --out secrets.md           table grouped by category
 """
 import argparse, csv, datetime as dt, difflib, re, sys
 from pathlib import Path
@@ -195,7 +195,7 @@ def cmd_posts(a):
     out = ["# Secrets posts (verified entries only)", "",
            "Check each tip once more in game before posting. Credit line stays on every post. No hashtags on X.", ""]
     if not ready:
-        out.append("No verified entries yet. Run `secrets.py verify <id> --by ...` after you checked one in game.")
+        out.append("No verified entries yet. Run `secrets_map.py verify <id> --by ...` after you checked one in game.")
     for r in ready:
         steps = [s.strip() for s in re.split(r"(?<=[.;])\s+|\n", r["how"]) if s.strip()][:4]
         body = "\n".join(f"{i}. {s}" for i, s in enumerate(steps, 1)) or r["how"]

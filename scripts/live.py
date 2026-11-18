@@ -1,4 +1,5 @@
-"""Record a YouTube live stream and auto-cut clips when live chat spikes.
+"""Record a YouTube or Twitch (twitch.tv/<login>, no key) live stream and auto-cut clips when live chat spikes.
+Twitch chat is read via anonymous IRC (twitch.py) instead of yt-dlp live_chat.
 
 Records the stream in 60 s segments into jobs/<id>/live/, reads live chat as it arrives, and on a chat
 spike cuts [spike-before, spike+after] into live/spike_<n>.mp4 and appends a row to live/spikes.md.
@@ -94,6 +95,42 @@ class ChatTail:
         return [w for w, _ in cnt.most_common(n)]
 
 
+class TwitchTail(ChatTail):
+    """Same counters as ChatTail, fed from the JSON lines twitch.irc_chat appends to chat.twitch.jsonl."""
+
+    def poll(self):
+        f = self.d / "chat.twitch.jsonl"
+        try:
+            with open(f, "rb") as fh:
+                fh.seek(self.pos.get(f.name, 0))
+                data = fh.read()
+        except OSError:
+            return
+        if not data:
+            return
+        self.pos[f.name] = self.pos.get(f.name, 0) + len(data)
+        buf = self.buf.get(f.name, b"") + data
+        *lines, rest = buf.split(b"\n")
+        self.buf[f.name] = rest
+        for ln in lines:
+            try:
+                m = json.loads(ln)
+                ts, txt = float(m["t"]), (m["text"] or "").strip()
+            except Exception:
+                continue
+            if ts < self.start - 5 or not txt or NOISE.search(txt):
+                continue
+            s = int(ts)
+            self.raw[s] += 1
+            self.wgt[s] += 2 if HYPE.search(txt) else 1
+            self.words.setdefault(s, []).append(txt)
+
+
+def twitch_login(url):
+    m = re.match(r"https?://(?:www\.|m\.)?twitch\.tv/([A-Za-z0-9_]+)/?(?:[?#].*)?$", url)
+    return m.group(1).lower() if m and m.group(1).lower() not in ("videos", "directory") else None
+
+
 class Recorder:
     def __init__(self, ld, url, minutes):
         self.ld, self.csv = ld, ld / "segments.csv"
@@ -179,7 +216,7 @@ def main():
     d = job_dir(a.url)
     ld = d / "live"
     ld.mkdir(exist_ok=True)
-    for f in list(ld.glob("seg_*.ts")) + list(ld.glob("chat.live_chat.json*")) + [ld / "segments.csv"]:
+    for f in list(ld.glob("seg_*.ts")) + list(ld.glob("chat.live_chat.json*")) + [ld / "segments.csv", ld / "chat.twitch.jsonl"]:
         f.unlink(missing_ok=True)
     spikes_md = ld / "spikes.md"
     if not spikes_md.exists():
@@ -189,11 +226,20 @@ def main():
     end_at = start + a.minutes * 60 + 30
 
     rec = Recorder(ld, a.url, a.minutes)
-    chat = subprocess.Popen(ytdlp_base() + ["--skip-download", "--write-subs", "--sub-langs", "live_chat",
-                                            "-o", str(ld / "chat"), a.url],
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                            creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
-    tail = ChatTail(ld, start)
+    login = twitch_login(a.url)
+    if login:
+        import threading, twitch
+        stop_chat = threading.Event()
+        chat_thread = threading.Thread(target=twitch.irc_chat, args=(login, ld / "chat.twitch.jsonl", stop_chat), daemon=True)
+        chat_thread.start()
+        chat = None
+        tail = TwitchTail(ld, start)
+    else:
+        chat = subprocess.Popen(ytdlp_base() + ["--skip-download", "--write-subs", "--sub-langs", "live_chat",
+                                                "-o", str(ld / "chat"), a.url],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
+        tail = ChatTail(ld, start)
     pending, last_spike, spikes = [], 0.0, 0
     print(f"recording {a.minutes:g} min -> {ld}  (Ctrl+C to stop)", flush=True)
 
@@ -235,7 +281,10 @@ def main():
         print("stopping...", flush=True)
     finally:
         rec.stop()
-        if chat.poll() is None:
+        if login:
+            stop_chat.set()
+            chat_thread.join(5)
+        elif chat.poll() is None:
             chat.terminate()
             try: chat.wait(10)
             except subprocess.TimeoutExpired: chat.kill()

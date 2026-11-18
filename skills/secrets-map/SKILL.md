@@ -9,7 +9,7 @@ Entries live in `secrets.csv` (id, category, name, where, how, source_channel, s
 
 ## Commands
 
-Run from the project folder with `.venv\Scripts\python scripts\secrets.py ...` (`--csv path` before the subcommand to use another file).
+Run from the project folder with `.venv\Scripts\python scripts\secrets_map.py ...` (`--csv path` before the subcommand to use another file).
 
 - `scan jobs/<id>`: reads `transcript.json` and `info.json`, finds secret-type mentions (hidden, secret, easter egg, money, cash, stash, collectible, rare car, location, spawn, unlock) and adds them as `unverified` with a quote and a `?t=` link to the source. Duplicates are skipped. Exploit-type mentions are skipped and printed.
 - `add --name N --where W --how H --category place --channel C --url U`: manual entry.
