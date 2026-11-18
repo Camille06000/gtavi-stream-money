@@ -1,6 +1,15 @@
-# gtavi-claudecode
+<div align="center">
 
-**Turn GTA 6 streams into paid clips while everyone else is still scrubbing VODs.**
+<img src="docs/logo.svg" width="135" alt="gtavi-claudecode logo">
+
+<h1 align="center">gtavi-claudecode</h1>
+
+<p align="center"><b>Turn GTA 6 streams into paid clips<br>while everyone else is still scrubbing VODs.</b></p>
+
+<p align="center"><img src="https://img.shields.io/badge/Claude_Code-plugin-e8457f" alt="Claude Code: plugin"> <img src="https://img.shields.io/badge/skills-15-e8457f" alt="skills: 15"> <img src="https://img.shields.io/badge/clips-1080x1920-e8457f" alt="clips: 1080x1920"> <img src="https://img.shields.io/badge/languages-5-e8457f" alt="languages: 5"></p>
+<p align="center"><img src="https://img.shields.io/badge/GTA_6-Nov_19-e8457f" alt="GTA 6: Nov 19"> <img src="https://img.shields.io/badge/license-MIT-e8457f" alt="license: MIT"></p>
+
+</div>
 
 ```
 /plugin marketplace add Bodila51/gtavi-claudecode
@@ -14,7 +23,7 @@ Two lines in Claude Code. In 10 minutes you have: the tools installed, your page
 <img src="docs/demo-frame-2.jpg" width="240" alt="word-by-word captions and credit line">
 </p>
 
-Made by this repo in one run: trend-radar picked the video, moment-finder picked the moment, clip-cutter added the hook, captions and credit. Source: [Hazard, "GTA 6 Just Got a MASSIVE Last Minute Info Dump..."](https://www.youtube.com/watch?v=jwwDSn-HW0o). All rights to the footage belong to its creator.
+Picked from trend-radar's list (#5 of the last 48 h, 55,945 views per hour), moment-finder found the moment (6:48-7:29, hype words), clip-cutter added the hook, captions and credit. Source: [Hazard, "GTA 6 Just Got a MASSIVE Last Minute Info Dump..."](https://www.youtube.com/watch?v=jwwDSn-HW0o). All rights to the footage belong to its creator.
 
 ## First run: paste this into Claude Code
 
