@@ -4,9 +4,9 @@
 
 <h1 align="center">gtavi-claudecode</h1>
 
-<p align="center"><b>Turn every GTA 6 stream into cash clips.<br>Before the streamer even logs off.</b></p>
+<p align="center"><b>Rockstar made the game.<br>Claude Code makes you the money.</b></p>
 
-<p align="center">Claude Code watches the biggest GTA 6 streams, catches the second chat explodes and hands you a ready-to-post vertical clip with a viral hook. Clipping campaigns pay per 1,000 views. You just hit post.</p>
+<p align="center">GTA 6 is about to break the internet. Claude Code watches the biggest streams, catches the second chat explodes and hands you a ready-to-post vertical clip. Campaigns pay per 1,000 views. You just hit post.</p>
 
 <p align="center"><img src="https://img.shields.io/badge/Claude_Code-plugin-e8457f" alt="Claude Code: plugin"> <img src="https://img.shields.io/badge/skills-15-e8457f" alt="skills: 15"> <img src="https://img.shields.io/badge/clips-1080x1920-e8457f" alt="clips: 1080x1920"> <img src="https://img.shields.io/badge/languages-5-e8457f" alt="languages: 5"></p>
 <p align="center"><img src="https://img.shields.io/badge/GTA_6-Nov_19-e8457f" alt="GTA 6: Nov 19"> <img src="https://img.shields.io/badge/license-MIT-e8457f" alt="license: MIT"></p>
