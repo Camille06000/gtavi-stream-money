@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/logo.svg" width="135" alt="gtavi-claudecode logo">
+<img src="docs/logo.png" width="300" alt="gtavi-claudecode logo">
 
 <h1 align="center">gtavi-claudecode</h1>
 
@@ -8,6 +8,7 @@
 
 <p align="center"><img src="https://img.shields.io/badge/Claude_Code-plugin-e8457f" alt="Claude Code: plugin"> <img src="https://img.shields.io/badge/skills-15-e8457f" alt="skills: 15"> <img src="https://img.shields.io/badge/clips-1080x1920-e8457f" alt="clips: 1080x1920"> <img src="https://img.shields.io/badge/languages-5-e8457f" alt="languages: 5"></p>
 <p align="center"><img src="https://img.shields.io/badge/GTA_6-Nov_19-e8457f" alt="GTA 6: Nov 19"> <img src="https://img.shields.io/badge/license-MIT-e8457f" alt="license: MIT"></p>
+<p align="center"><sub>Unofficial fan project. Not affiliated with Rockstar Games, Take-Two or Anthropic.</sub></p>
 
 </div>
 
@@ -18,12 +19,18 @@
 
 Two lines in Claude Code. In 10 minutes you have: the tools installed, your page folder, today's trending GTA 6 videos, the best moments picked and your first vertical clips ready to post.
 
-<p>
-<img src="docs/demo-frame-1.jpg" width="240" alt="hook box in the first second">
-<img src="docs/demo-frame-2.jpg" width="240" alt="word-by-word captions and credit line">
-</p>
+```
+Claude Code
+> Use gtavi-claudecode. Set up my GTA 6 clip page and cut my first 3 clips.
 
-Picked from trend-radar's list (#5 of the last 48 h, 55,945 views per hour), moment-finder found the moment (6:48-7:29, hype words), clip-cutter added the hook, captions and credit. Source: [Hazard, "GTA 6 Just Got a MASSIVE Last Minute Info Dump..."](https://www.youtube.com/watch?v=jwwDSn-HW0o). All rights to the footage belong to its creator.
+✓ trend-radar     GTA 6 video #5 of the last 48 h: 1,138,576 views, 55,945/hour
+✓ moment-finder   best moment 6:48-7:29, score 3.89 (hype words)
+✓ clip-cutter     40.7 s vertical clip, 1080x1920, word-by-word captions
+✓ hook            "The kid who hacked Rockstar is 21 now"
+✓ credit          clip: @Hazard · moment-finder 5.2 min + cut 53 s on a plain CPU
+```
+
+One real run. The video was picked by hand from trend-radar's list. Source: [Hazard, "GTA 6 Just Got a MASSIVE Last Minute Info Dump..."](https://www.youtube.com/watch?v=jwwDSn-HW0o). All rights to the footage belong to its creator.
 
 ## First run: paste this into Claude Code
 
