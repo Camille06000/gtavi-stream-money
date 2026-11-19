@@ -354,7 +354,7 @@ def _pw(ts, vs):
     return expr
 
 
-def face_crop_expr(track, src_w, src_h, out_w, out_h, eyes_at=0.40, head_fill=0.38):
+def face_crop_expr(track, src_w, src_h, out_w, out_h, eyes_at=0.40, head_fill=0.38, bounds=None):
     """ffmpeg crop for a face panel of aspect out_w:out_h that follows the smoothed face.
     head_fill = face box height / crop height (0.38 shows head and shoulders). Eyes sit at eyes_at of the panel height,
     the face is horizontally centred, the face box never leaves the crop and the crop never leaves the frame.
@@ -363,8 +363,10 @@ def face_crop_expr(track, src_w, src_h, out_w, out_h, eyes_at=0.40, head_fill=0.
     if not track:
         return None
     ar = out_w / out_h
+    L, T, R, B = bounds if bounds else (0, 0, src_w, src_h)                 # crop must stay inside the webcam
+    bw, bh = R - L, B - T
     size = float(np.median([k["size"] for k in track])) * src_h          # face height px
-    ch = min(size / head_fill, src_h, src_w / ar)
+    ch = min(size / head_fill, bh, bw / ar)                               # too big for the cam: zoom in instead
     cw = ch * ar
     cw = max(2, int(cw) // 2 * 2); ch = max(2, int(round(cw / ar)) // 2 * 2)
     if ch > src_h:
@@ -375,11 +377,11 @@ def face_crop_expr(track, src_w, src_h, out_w, out_h, eyes_at=0.40, head_fill=0.
         fh_ = k["size"] * src_h; fw_ = 0.8 * fh_
         x = fcx - cw / 2
         y = (fcy - 0.12 * fh_) - eyes_at * ch                              # eyes sit ~0.12 face heights above the box centre
-        lo, hi = max(0, fcx + fw_ / 2 - cw), min(src_w - cw, fcx - fw_ / 2)  # keep the whole face box inside
+        lo, hi = max(L, fcx + fw_ / 2 - cw), min(R - cw, fcx - fw_ / 2)  # keep the whole face box inside
         if lo <= hi: x = min(max(x, lo), hi)
-        lo, hi = max(0, fcy + fh_ / 2 - ch), min(src_h - ch, fcy - fh_ / 2)
+        lo, hi = max(T, fcy + fh_ / 2 - ch), min(B - ch, fcy - fh_ / 2)
         if lo <= hi: y = min(max(y, lo), hi)
-        xs.append(min(max(x, 0), src_w - cw)); ys.append(min(max(y, 0), src_h - ch)); ts.append(k["t"])
+        xs.append(min(max(x, L), R - cw)); ys.append(min(max(y, T), B - ch)); ts.append(k["t"])
     x_e, y_e = _pw(ts, xs), _pw(ts, ys)
     return {"w": cw, "h": ch, "x": x_e, "y": y_e, "filter": f"crop={cw}:{ch}:{x_e}:{y_e}"}
 
@@ -549,3 +551,44 @@ if __name__ == "__main__":
     main()
 
 
+
+
+def inner_edges(video, start, end, face, src_w, src_h, n=12):
+    """For a webcam with no full frame (e.g. docked to the corner of the screen), find the inner borders
+    that do exist: the strongest straight line on each side of the face, held over sampled frames.
+    face = [x, y, w, h] fractions. Returns (L, T, R, B) in pixels; a side with no clear line is the frame edge."""
+    cap = cv2.VideoCapture(str(video)); g = []
+    for k in range(n):
+        cap.set(cv2.CAP_PROP_POS_MSEC, ((start or 0) + ((end or 0) - (start or 0)) * (k + 0.5) / n) * 1000)
+        ok, f = cap.read()
+        if ok:
+            g.append(cv2.cvtColor(f, cv2.COLOR_BGR2GRAY).astype(np.float32))
+    cap.release()
+    if len(g) < 4:
+        return (0, 0, src_w, src_h)
+    med = np.median(np.stack(g), 0)
+    H_, W_ = med.shape
+    fx, fy, fw, fh = face[0] * W_, face[1] * H_, face[2] * W_, face[3] * H_
+    dy = np.abs(cv2.Sobel(med, cv2.CV_32F, 0, 1, ksize=3)); dx = np.abs(cv2.Sobel(med, cv2.CV_32F, 1, 0, ksize=3))
+    # temporal: game and cam change differently, so the border is also where std jumps
+    sd = np.stack(g).std(0)
+    def best_line(score, lo, hi):
+        lo, hi = int(max(0, lo)), int(min(len(score) - 1, hi))
+        if hi - lo < 3:
+            return None
+        seg = score[lo:hi]; i = int(np.argmax(seg)); m = np.median(score) + 1e-6
+        return lo + i if seg[i] > 4 * m and seg[i] > 12 else None
+    x0, x1 = int(max(0, fx - 2.5 * fw)), int(min(W_, fx + fw + 2.5 * fw))
+    y0, y1 = int(max(0, fy - 2.0 * fh)), int(min(H_, fy + fh + 3.0 * fh))
+    rows = dy[:, x0:x1].mean(1) + np.abs(np.diff(sd[:, x0:x1].mean(1), prepend=0)) * 0.5
+    cols = dx[y0:y1, :].mean(0) + np.abs(np.diff(sd[y0:y1, :].mean(0), prepend=0)) * 0.5
+    b = best_line(rows, fy + fh * 1.3, fy + fh * 4.0)
+    t = best_line(rows, fy - fh * 2.5, fy - fh * 0.4)
+    r = best_line(cols, fx + fw * 1.3, fx + fw * 4.0)
+    l = best_line(cols, fx - fw * 3.0, fx - fw * 0.3)
+    sx, sy = src_w / W_, src_h / H_
+    L = (l + 3) * sx if l is not None else 0
+    T = (t + 3) * sy if t is not None else 0
+    R = (r - 2) * sx if r is not None else src_w
+    B = (b - 2) * sy if b is not None else src_h
+    return (int(L), int(T), int(R), int(B))

@@ -230,7 +230,11 @@ def main():
             if r.get('mode') == 'face' and r.get('face_track'):
                 from common import ffprobe as _fp
                 _vs = [x for x in _fp(c['source'])['streams'] if x.get('codec_type') == 'video'][0]
-                fe = face_crop_expr(r['face_track'], int(_vs['width']), int(_vs['height']), W, TOP)
+                from facecam import inner_edges
+                sw_, sh_ = int(_vs['width']), int(_vs['height'])
+                bnd = inner_edges(c['source'], s0, e0, r['face'], sw_, sh_)
+                print(f'facecam: cam borders L{bnd[0]} T{bnd[1]} R{bnd[2]} B{bnd[3]} px')
+                fe = face_crop_expr(r['face_track'], sw_, sh_, W, TOP, bounds=bnd)
                 face_expr = (fe['w'], fe['h'], fe['x'], fe['y'])
                 print(f"facecam: no clean cam frame, tracking the face ({r.get('summary', '')})")
         if r.get('mode') in ('cam', 'face'):
