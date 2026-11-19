@@ -41,4 +41,4 @@ Describe what happens on screen. Never put words in the streamer's mouth: no quo
 5. Do not reuse the same hook within a week. Check `log.md`.
 6. Facts in the hook must be true and verified. Numbers must match the clip.
 
-Return the 3 options, mark your pick, and give the credit line (`🎥 @creator`) beside them.
+Return the 3 options and mark your pick.

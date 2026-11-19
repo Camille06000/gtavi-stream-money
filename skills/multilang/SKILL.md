@@ -13,13 +13,12 @@ Run after `clip-cutter` (the clip must already exist as `jobs/<id>/edits/clip_<n
 
 Output in `jobs/<id>/edits/`: `clip_<n>_<lang>.mp4` per language and one `clip_<n>_captions.md` with X, Instagram and TikTok/Shorts captions per language.
 
-- Layout, hook box, credit line and loudness match the original cut. Override with `--layout`, `--hook`, `--credit` if needed.
+- Layout, hook box and loudness match the original cut. Override with `--layout`, `--hook` if needed.
 - `--voice` adds a stock text-to-speech voice (edge-tts: es-ES-AlvaroNeural, pt-BR-AntonioNeural, de-DE-ConradNeural, ru-RU-DmitryNeural) that reads the translated hook only, in the first 2.5 seconds, with the original audio ducked under it.
 - Never clone or imitate a real person's or streamer's voice. Stock voices only, and do not present the voiceover as the creator speaking.
 
 Rules:
 
-1. Keep the credit line in every language. No credit, no post.
 2. Translate facts, do not invent. Do not add claims, dates, prices or names that are not in the original clip or hook. Machine translation can slip: read each language's captions and hook before the human posts, and fix wrong or odd lines (ask the human if a language is unfamiliar).
 3. Run `rule-check` on each language version, same as the original.
 4. Post localized versions on separate localized pages or accounts, or as multi-language uploads where the platform supports them (for example YouTube multiple audio tracks and translated titles). Do not spam the same page with five versions of one clip.

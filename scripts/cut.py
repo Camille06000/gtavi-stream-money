@@ -1,9 +1,9 @@
 """Cut one candidate into a finished vertical clip.
 
-1080x1920, 30 fps, word-by-word burned captions, hook box in the first seconds, credit line,
+1080x1920, 30 fps, word-by-word burned captions (slurs and swears masked), hook box in the first seconds,
 loudness normalised to -14 LUFS. Writes jobs/<id>/edits/clip_<n>.mp4 + .json (metadata for check.py).
 
-usage: python cut.py jobs/<id> --pick 1 [--layout fill|blur|facecam|react] [--hook "TEXT"] [--credit "@creator"]
+usage: python cut.py jobs/<id> --pick 1 [--layout fill|blur|facecam|react] [--hook "TEXT"]
                      [--cam auto|x:y:w:h] [--title "TEXT" --title-style box|outline --title-secs 0] [--captions word|bubble|none]
 """
 import argparse, sys
@@ -17,6 +17,24 @@ W, H = 1080, 1920
 def ts(t):
     t = max(0, t); h = int(t // 3600); m = int(t % 3600 // 60); s = t % 60
     return f"{h}:{m:02d}:{s:05.2f}"
+
+
+import re as _re
+_SLURS = _re.compile(r"\b(nigg\w*|n[i1]gg?a\w*|f[a@]gg?\w*|retard\w*|tranny\w*|chink\w*|spic\w*|kike\w*)\b", _re.I)
+
+
+_SWEARS = _re.compile(r"\b(fuck\w*|motherfuck\w*|shit\w*|bitch\w*|cunt\w*|dick\w*|pussy\w*|asshole\w*|bastard\w*|whore\w*|slut\w*)\b", _re.I)
+
+
+def _mask(m):
+    w = m.group(0)
+    return w[0] + '*' * (len(w) - 1)
+
+
+def clean(s, profanity=False):
+    """Slurs are always masked (n-word -> n****); hard swears too unless profanity=True."""
+    s = _SLURS.sub(_mask, s)
+    return s if profanity else _SWEARS.sub(_mask, s)
 
 
 def esc(s):
@@ -33,7 +51,7 @@ def wrap(text, width):
     return lines + ([cur] if cur else [])
 
 
-def build_ass(words, s0, e0, hook, credit, cap_y, title=None, caps='word'):
+def build_ass(words, s0, e0, hook, cap_y, title=None, caps='word', profanity=False):
     hdr = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {W}
@@ -44,7 +62,6 @@ WrapStyle: 0
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Cap,Arial Black,92,&H00FFFFFF,&H0000E5FF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,7,3,5,60,60,0,1
 Style: Hook,Arial Black,68,&H00000000,&H00000000,&H00FFFFFF,&H00FFFFFF,-1,0,0,0,100,100,0,0,3,18,0,8,70,70,170,1
-Style: Credit,Arial,40,&H00FFFFFF,&H00FFFFFF,&H00000000,&H78000000,-1,0,0,0,100,100,0,0,1,3,1,2,40,40,90,1
 Style: TitleBox,Arial Black,66,&H00000000,&H00000000,&H00FFFFFF,&H00FFFFFF,-1,0,0,0,100,100,0,0,1,0,0,5,40,40,0,1
 Style: TitleOut,Arial Black,80,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,9,2,8,50,50,0,1
 Style: Bubble,Arial,58,&H00000000,&H00000000,&H00FFFFFF,&H00FFFFFF,-1,0,0,0,100,100,0,0,3,16,0,5,60,60,0,1
@@ -53,7 +70,7 @@ Style: Bubble,Arial,58,&H00000000,&H00000000,&H00FFFFFF,&H00FFFFFF,-1,0,0,0,100,
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     ev = []
-    ws = [w for w in words if s0 <= w["s"] < e0 and w["w"]]
+    ws = [dict(w, w=clean(w["w"], profanity)) for w in words if s0 <= w["s"] < e0 and w["w"]]
     # groups of up to 3 words, break on punctuation or pauses
     groups, cur = [], []
     for w in ws:
@@ -94,16 +111,19 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         hook = ''
     if hook:
         ev.append(f"Dialogue: 1,{ts(0)},{ts(hook_end)},Hook,,0,0,0,,{{\\fad(0,180)\\fscx92\\fscy92\\t(0,120,\\fscx100\\fscy100)}}{esc(hook)}")
-    if credit:
-        ev.append(f"Dialogue: 1,{ts(0)},{ts(e0 - s0)},Credit,,0,0,0,,{esc('clip: ' + credit)}")
     return hdr + "\n".join(ev) + "\n"
 
 
 CAP_Y = {"fill": 1380, "blur": 1460, "facecam": 1120, "react": 1560}
-TOP = int(H * 0.38)  # react layout: facecam height
+TOP = 730  # react layout: face panel height = seam y (even)
+GAME_H = H - TOP  # 1190
 
 
-def video_filter(layout, cam, ass, band=None, cam_side='right'):
+def even(n):
+    return int(n) // 2 * 2
+
+
+def video_filter(layout, cam, ass, band=None, cam_side='right', src=None, game_x=None, face_expr=None):
     """Layout + burned-caption filter graph ending in [vo]. Reused by translate.py."""
     if layout == "fill":
         v = f"[0:v]scale=-2:{H},crop={W}:{H}[v]"
@@ -111,10 +131,18 @@ def video_filter(layout, cam, ass, band=None, cam_side='right'):
         v = (f"[0:v]split[a][b];[a]scale=-2:{H},crop={W}:{H},boxblur=24:2,eq=brightness=-0.08[bg];"
              f"[b]scale={W}:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2-80[v]")
     elif layout == 'react':
-        x, y, w, h = map(float, cam.split(':'))
-        gx = 'iw-ow' if cam_side == 'left' else '0'  # crop the gameplay away from the webcam corner
-        v = (f"[0:v]split[a][b];[a]crop=iw*{w}:ih*{h}:iw*{x}:ih*{y},scale={W}:{TOP}:force_original_aspect_ratio=increase,"
-             f"crop={W}:{TOP}[cam];[b]scale=-2:{H - TOP},crop={W}:{H - TOP}:{gx}:0[game];[cam][game]vstack[v]")
+        sw, sh = src
+        if face_expr:  # tracked face crop (no cam frame)
+            cw, chh, ex, ey = face_expr
+            top = f"crop={cw}:{chh}:{ex}:{ey}"
+        else:
+            x, y, w, h = map(float, cam.split(':'))
+            cw, chh = even(sw * w), even(sh * h)
+            top = f"crop={cw}:{chh}:{even(sw * x)}:{even(sh * y)}"
+        gw = even(sw * GAME_H / sh) if sw * GAME_H / sh >= W else W
+        gx = game_x if game_x is not None else ((gw - W) if cam_side == 'left' else 0)
+        v = (f"[0:v]split[a][b];[a]{top},scale={W}:{TOP}:force_original_aspect_ratio=increase,crop={W}:{TOP},setsar=1[cam];"
+             f"[b]scale={gw}:{GAME_H},crop={W}:{GAME_H}:{even(gx)}:0,setsar=1[game];[cam][game]vstack[v]")
         if band:
             y0, bh, secs = band
             en = f":enable='lte(t,{secs})'" if secs > 0 else ''
@@ -127,6 +155,47 @@ def video_filter(layout, cam, ass, band=None, cam_side='right'):
     return v + f";[v]fps=30,subtitles='{sub}'[vo]"
 
 
+def game_offset(video, s0, e0, src, cam_box):
+    """Pick the x offset of the 1080-wide game crop that avoids static overlays (viewer counters,
+    alerts, chat boxes) and the webcam. Static = pixels that barely change across sampled frames
+    but carry edges (text/graphics)."""
+    try:
+        import cv2, numpy as np
+    except ImportError:
+        return None
+    sw, sh = src
+    gw = even(sw * GAME_H / sh)
+    if gw <= W:
+        return 0
+    cap = cv2.VideoCapture(str(video)); frames = []
+    for k in range(12):
+        cap.set(cv2.CAP_PROP_POS_MSEC, (s0 + (e0 - s0) * (k + 0.5) / 12) * 1000)
+        ok, f = cap.read()
+        if ok:
+            frames.append(cv2.resize(cv2.cvtColor(f, cv2.COLOR_BGR2GRAY), (gw, GAME_H)).astype(np.float32))
+    cap.release()
+    if len(frames) < 4:
+        return None
+    st = np.stack(frames)
+    std = st.std(0); med = np.median(st, 0)
+    edges = cv2.Canny(med.astype(np.uint8), 60, 160) > 0
+    bad = (std < 6) & cv2.dilate(edges.astype(np.uint8), np.ones((9, 9), np.uint8)).astype(bool)
+    x, y, w, h = cam_box  # the cam itself also counts as overlay
+    bad[int(y * GAME_H):int((y + h) * GAME_H), int(x * gw):int((x + w) * gw)] = True
+    col = bad.sum(0).astype(np.float64); cs = np.concatenate([[0], np.cumsum(col)])
+    best, bx = None, 0
+    camcols = np.zeros(gw); camcols[int(x * gw):int((x + w) * gw)] = 1; cc = np.concatenate([[0], np.cumsum(camcols)])
+    for ox in range(0, gw - W + 1, 8):
+        # never show the cam twice; otherwise stay near the centre (game subtitles and action sit there),
+        # moving off-centre only when that clearly removes a static overlay (counters, alerts, chat)
+        if cc[ox + W] - cc[ox] > 0 and (cc[-1] < gw - W):
+            continue
+        cost = (cs[ox + W] - cs[ox]) * 0.2 + abs(ox - (gw - W) / 2) * GAME_H * 0.05
+        if best is None or cost < best:
+            best, bx = cost, ox
+    return bx
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("job"); ap.add_argument("--pick", type=int, default=1)
@@ -135,7 +204,8 @@ def main():
     ap.add_argument("--title-style", choices=["box", "outline"], default="box")
     ap.add_argument("--title-secs", type=float, default=0, help="0 = whole clip")
     ap.add_argument("--captions", choices=["word", "bubble", "none"], default="word")
-    ap.add_argument("--hook", default=""); ap.add_argument("--credit", default="")
+    ap.add_argument("--hook", default="")
+    ap.add_argument("--allow-profanity", action="store_true", help="keep swear words in captions (slurs are always masked)")
     ap.add_argument("--cam", default="auto", help="auto (find the webcam) or x:y:w:h fractions")
     ap.add_argument("--start", type=float); ap.add_argument("--end", type=float)
     a = ap.parse_args()
@@ -145,9 +215,24 @@ def main():
     words = load_json(d / "transcript.json")
     out = d / "edits"; out.mkdir(exist_ok=True)
     layout, cam, side = a.layout, a.cam, 'right'
+    face_expr = None
     if layout in ('react', 'facecam') and cam == 'auto':
         from facecam import find_cam
         r = find_cam(c['source'], s0, e0)
+        if layout == 'react' and r.get('mode') not in ('cam', 'face'):
+            sys.exit(f"skipped: no streamer face over gameplay in this moment ({r.get('mode')}: {r.get('reason', '')}). "
+                     "React clips need the game on screen with the cam as a separate box. Pick another moment or stream.")
+        if layout == 'react':
+            from facecam import has_gameplay, face_crop_expr
+            if not has_gameplay(c['source'], s0, e0, r['box']):
+                sys.exit("skipped: the area outside the webcam is not gameplay (same scene or no game on screen). "
+                         "Pick a moment where GTA 6 is on screen.")
+            if r.get('mode') == 'face' and r.get('face_track'):
+                from common import ffprobe as _fp
+                _vs = [x for x in _fp(c['source'])['streams'] if x.get('codec_type') == 'video'][0]
+                fe = face_crop_expr(r['face_track'], int(_vs['width']), int(_vs['height']), W, TOP)
+                face_expr = (fe['w'], fe['h'], fe['x'], fe['y'])
+                print(f"facecam: no clean cam frame, tracking the face ({r.get('summary', '')})")
         if r.get('mode') in ('cam', 'face'):
             bx = list(r['box'])
             if r['mode'] == 'face':  # no webcam frame: widen the face crop so it is not a blurry close-up
@@ -175,8 +260,14 @@ def main():
     ass = out / f"clip_{a.pick}.ass"
     caps = a.captions
     cap_words = words if caps != 'none' else []
-    ass.write_text(build_ass(cap_words, s0, e0, a.hook, a.credit, cap_y, title=title, caps=caps), encoding="utf-8")
-    v = video_filter(layout, cam, ass, band=band, cam_side=side)
+    ass.write_text(build_ass(cap_words, s0, e0, a.hook, cap_y, title=title, caps=caps, profanity=a.allow_profanity), encoding="utf-8")
+    src = None; gx = None
+    if layout == 'react':
+        from common import ffprobe
+        vs = [x for x in ffprobe(c['source'])['streams'] if x.get('codec_type') == 'video'][0]
+        src = (int(vs['width']), int(vs['height']))
+        gx = game_offset(c['source'], s0, e0, src, [float(t) for t in cam.split(':')])
+    v = video_filter(layout, cam, ass, band=band, cam_side=side, src=src, game_x=gx, face_expr=face_expr)
     mp4 = out / f"clip_{a.pick}.mp4"
     run([tool("ffmpeg"), "-y", "-v", "error", "-ss", f"{s0:.2f}", "-to", f"{e0:.2f}", "-i", c["source"],
          "-filter_complex", v, "-map", "[vo]", "-map", "0:a?", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11",
@@ -184,7 +275,7 @@ def main():
          "-ar", "48000", "-movflags", "+faststart", str(mp4)])
     info = c.get("info", {})
     save_json(out / f"clip_{a.pick}.json", {"file": str(mp4), "start": s0, "end": e0, "layout": layout, "hook": a.hook or a.title, "title": a.title, "cam": cam,
-                                            "credit": a.credit, "source_url": info.get("webpage_url"), "source_title": info.get("title"),
+                                            "source_url": info.get("webpage_url"), "source_title": info.get("title"),
                                             "source_channel": info.get("channel") or info.get("uploader")})
     print(mp4)
 

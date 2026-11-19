@@ -69,10 +69,6 @@ def main():
     add("has audio", au is not None)
     add(f"duration {rules['min']:g}-{rules['max']:g}s" + ("" if have_campaign else " (default)"),
         rules["min"] <= dur <= rules["max"], f"{dur:.1f}s")
-    if side.exists():
-        add("credit present", bool(str(meta.get("credit", "")).strip()), meta.get("credit", "") or "empty")
-    else:
-        add("credit present", False, f"no sidecar {side.name}; cannot verify credit")
     hook = meta.get("hook", "")
     hits = banned_in(hook + " " + a.caption)
     add("no banned terms in caption/hook", not hits, ", ".join(hits))

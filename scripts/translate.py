@@ -4,7 +4,7 @@ Translates the spoken lines (word-by-word captions) and the hook of an already c
 jobs/<id>/edits/clip_<n>_<lang>.mp4 with the same layout as cut.py, plus clip_<n>_captions.md with
 per-platform captions in each language.
 
-usage: python translate.py jobs/<id> --pick <n> --langs es,pt,de,ru [--voice] [--layout ...] [--hook "..."] [--credit "..."]
+usage: python translate.py jobs/<id> --pick <n> --langs es,pt,de,ru [--voice] [--layout ...] [--hook "..."]
 
 --voice adds a stock text-to-speech voice (edge-tts, Microsoft neural stock voices) that speaks the
 translated hook only, over the first 2.5 s, with the original audio ducked under it. It never clones
@@ -103,7 +103,7 @@ def render(src, s0, e0, layout, cam, ass, mp4, voice_mp3=None):
 
 def platform_block(lang, hook, credit, url):
     line = hook or ""
-    cred = f"clip: {credit}" if credit else ""
+    cred = ""
     src = f"\n{url}" if url else ""
     x = "\n".join(p for p in [line, cred] if p) + src
     ig = "\n".join(p for p in [line, cred, " ".join(HASHTAGS[:4])] if p)
@@ -118,7 +118,7 @@ def main():
     ap.add_argument("--langs", default="es,pt,de,ru")
     ap.add_argument("--voice", action="store_true")
     ap.add_argument("--layout", choices=["fill", "blur", "facecam"])
-    ap.add_argument("--cam"); ap.add_argument("--hook"); ap.add_argument("--credit")
+    ap.add_argument("--cam"); ap.add_argument("--hook")
     a = ap.parse_args()
     d = Path(a.job); out = d / "edits"
     side = out / f"clip_{a.pick}.json"
@@ -130,20 +130,18 @@ def main():
     layout = a.layout or meta.get("layout", "blur")
     cam = a.cam or "0.70:0.68:0.30:0.32"
     hook = a.hook if a.hook is not None else meta.get("hook", "")
-    credit = a.credit if a.credit is not None else meta.get("credit", "")
-    if not credit:
-        sys.exit("No credit line. Pass --credit (or cut with one). Never post a clip without credit.")
+    credit = ""
     words = [w for w in load_json(d / "transcript.json") if s0 <= w["s"] < e0 and w["w"]]
     langs = [x.strip() for x in a.langs.split(",") if x.strip()]
     caps = ["# Captions, one clip in several languages\n",
             f"Source: {meta.get('source_title') or ''} ({meta.get('source_channel') or ''})\n",
-            "Translations are machine translated. Read each one before posting. Keep the credit line.\n"]
+            "Translations are machine translated. Read each one before posting.\n"]
     for lang in langs:
         t = translator(lang)
         h = tr(t, hook) if hook else ""
         tw = translate_words(t, words)
         ass = out / f"clip_{a.pick}_{lang}.ass"
-        ass.write_text(build_ass(tw, s0, e0, h, credit, CAP_Y[layout]), encoding="utf-8")
+        ass.write_text(build_ass(tw, s0, e0, h, CAP_Y[layout]), encoding="utf-8")
         mp4 = out / f"clip_{a.pick}_{lang}.mp4"
         mp3 = None
         if a.voice and h:

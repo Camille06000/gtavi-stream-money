@@ -28,7 +28,7 @@ Two lines in Claude Code. In 10 minutes you have: the tools installed, your page
 Use gtavi-claudecode. Set up my GTA 6 clip page, ask me your 4 questions in one message,
 then do everything after one "yes": find live clipping campaigns, show today's trending
 GTA 6 videos and live streams, find the best moments in the top one, cut my first 3 clips
-with hooks and credits, check them against the campaign rules, and tell me what to post where.
+with hooks, check them against the campaign rules, and tell me what to post where.
 ```
 
 ## Two ways to make money
@@ -44,7 +44,7 @@ No income is promised. Your result depends on speed, picks and hooks, and the sc
 - Hook in the first second. Say why to keep watching ("the hidden car nobody found").
 - 7 to 30 seconds. Cut dead air at the start, end on the payoff.
 - Big captions in the safe area. Most people watch muted.
-- Credit line on every clip. Make it yours: hook, tip, commentary. Never a plain re-upload.
+- Make it yours: hook, tip, commentary. Never a plain re-upload. Credit the creator in your post.
 - Launch day (Nov 19): players in New Zealand and Australia unlock first. Clip their streams, post to X first, then Reels, TikTok and Shorts, every 1 to 2 hours for 48 hours.
 - Every repeated question in your comments becomes a HOW TO post.
 - One test per day. No verdict before 24 hours, prefer the 72 h numbers.
@@ -60,9 +60,9 @@ No income is promised. Your result depends on speed, picks and hooks, and the sc
 | `moment-finder` | Best 15 to 40 s moments, scored by loudness spikes, hype words, YouTube "most replayed" and chat spikes |
 | `live-mode` | Records a live stream and cuts a clip every time chat explodes |
 | `twitch-reaction` | Reaction clips like the viral ones: the streamer's face on top, the game below, a big title on the seam. Finds the top GTA 6 Twitch streams with no account, reads chat and finds the webcam by itself |
-| `clip-cutter` | 1080x1920 clip: word-by-word captions, hook box, credit line, -14 LUFS. Fill, blurred background or facecam on top |
+| `clip-cutter` | 1080x1920 clip: word-by-word captions, hook box, -14 LUFS. Fill, blurred background or facecam on top |
 | `hook-writer` | 3 hook options per clip |
-| `rule-check` | Length, format, credit, hashtags and banned content checked before you post |
+| `rule-check` | Length, format, hashtags and banned content checked before you post |
 | `multilang` | One clip in 5 languages: translated word-by-word captions and hook in ES, PT, DE, RU, optional stock-voice hook. Non-English GTA pages are almost empty |
 | `questions-to-posts` | Pulls repeated questions from GTA subreddits and your comments, turns the answered ones into HOW TO posts |
 | `secrets-map` | Builds a database of hidden spots, money, cars and collectibles from clips, with timestamp and credit. Verified ones become evergreen tip posts |
@@ -83,7 +83,7 @@ pip install -r requirements.txt
 python scripts/trends.py --query "gta 6" --hours 24
 python scripts/streams.py --query "gta 6"
 python scripts/moments.py "https://www.youtube.com/watch?v=..." --top 8
-python scripts/cut.py jobs/<id> --pick 2 --layout facecam --hook "Nobody noticed this" --credit "@creator"
+python scripts/cut.py jobs/<id> --pick 2 --layout facecam --hook "Nobody noticed this"
 python scripts/check.py jobs/<id>/edits/clip_2.mp4 --campaign campaigns.md
 python scripts/live.py "https://www.youtube.com/watch?v=<live>" --minutes 60
 ```

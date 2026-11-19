@@ -18,4 +18,4 @@ Then:
 3. Recommend the best 3 and say what hook angle each suggests.
 4. Next step: `clip-cutter` with `--pick <n>`.
 
-Record the source link and creator in `media/raw` notes. The creator must be credited on every clip.
+Record the source link and creator in `media/raw` notes. Credit the creator in the post caption.

@@ -196,6 +196,244 @@ def refine_with_frame_edges(rect, w, h, face):
     return rect
 
 
+SNAP_FRAMES = 20
+SNAP_RANGE = 80      # px (at MAX_W analysis width) searched around each edge
+SNAP_SHRINK = 2      # px moved inside so no sliver of game/background remains
+
+
+def _edge_profile(M, S, p_lo, p_hi, span, vertical):
+    """Score candidate border positions p in [p_lo,p_hi) of a vertical (x) or horizontal (y) edge.
+    M = median colour image (float32 HxWx3), S = temporal std map (HxW), span = (a,b) along the line.
+    p = first pixel after the change: step between [p-3,p) and [p,p+3).
+    Evidence: (1) straight line: the colour step holds on most pixels along the span (static edge / constant colour line),
+    (2) temporal change: cam region and game region differ in temporal behaviour across the line."""
+    a, b = span
+    if not vertical:
+        M = M.transpose(1, 0, 2); S = S.T
+    Ms = M[a:b]; Ss = S[a:b]
+    n = Ms.shape[1]
+    ps = np.arange(max(p_lo, 4), min(p_hi, n - 3))
+    if len(ps) == 0:
+        return ps, np.zeros(0)
+    cs = np.concatenate([np.zeros((Ms.shape[0], 1, 3), np.float32), np.cumsum(Ms, axis=1)], axis=1)
+    right = (cs[:, ps + 3] - cs[:, ps]) / 3; left = (cs[:, ps] - cs[:, ps - 3]) / 3
+    step = np.abs(right - left).sum(axis=2)            # rows x candidates
+    cons = (step > 24).mean(axis=0)                    # fraction of the line that shows the step
+    mag = np.clip(np.median(step, axis=0) / 45.0, 0, 1)
+    cs2 = np.concatenate([np.zeros((Ss.shape[0], 1), np.float32), np.cumsum(Ss, axis=1)], axis=1)
+    k0 = np.clip(ps - 10, 0, n); k1 = np.clip(ps - 2, 0, n); k2 = np.clip(ps + 2, 0, n); k3 = np.clip(ps + 10, 0, n)
+    sl = (cs2[:, k1] - cs2[:, k0]) / np.maximum(1, k1 - k0); sr = (cs2[:, k3] - cs2[:, k2]) / np.maximum(1, k3 - k2)
+    rel = np.abs(sl - sr) / (sl + sr + 2.0)
+    tcons = (rel > 0.35).mean(axis=0)
+    tmag = np.clip(np.median(rel, axis=0) * 2, 0, 1)
+    return ps, cons * mag + 0.6 * tcons * tmag
+
+
+def snap_edges(frames, box, search=SNAP_RANGE, shrink=SNAP_SHRINK, face=None):
+    """Snap [L,T,R,B] (px of the analysis frames) to the real webcam border. Returns (L,T,R,B,raw_edges)."""
+    h, w = frames[0].shape[:2]
+    L, T, R, B = [int(round(v)) for v in box]
+    idx = np.linspace(0, len(frames) - 1, min(len(frames), SNAP_FRAMES)).astype(int)
+    fs = [frames[i] for i in idx]
+    M = np.median(np.array(fs), axis=0).astype(np.float32)
+    S = np.array([cv2.cvtColor(f, cv2.COLOR_BGR2GRAY) for f in fs]).astype(np.float32).std(axis=0)
+    M = cv2.GaussianBlur(M, (3, 3), 0); S = cv2.GaussianBlur(S, (3, 3), 0)
+    H, W = B - T, R - L
+    yspan = (int(T + 0.15 * H), int(B - 0.15 * H)); xspan = (int(L + 0.15 * W), int(R - 0.15 * W))
+    out = {}
+    for name, p0, vertical, span in (("L", L, True, yspan), ("R", R, True, yspan), ("T", T, False, xspan), ("B", B, False, xspan)):
+        lim = w if vertical else h
+        if p0 <= 3 or p0 >= lim - 3:      # docked to the frame edge: nothing to snap
+            out[name] = 0 if p0 <= 3 else lim
+            continue
+        ps, sc = _edge_profile(M, S, p0 - search, p0 + search + 1, span, vertical)
+        if len(ps) == 0 or sc.max() < 0.25:
+            out[name] = p0
+            continue
+        sc = sc - 0.05 * np.abs(ps - p0) / search            # weak prior: stay near the first estimate
+        # strong plateaus (runs within 90% of the best); the cam border is the one nearest the face: a stronger line
+        # further out (game UI card, window edge) lies beyond a flat dead strip that is not part of the cam
+        strong = sc >= 0.9 * sc.max()
+        if face is not None:
+            fx, fy, fw_, fh_ = face
+            lim_in = {"L": fx - 0.3 * fw_, "R": fx + 1.3 * fw_, "T": fy - 0.3 * fh_, "B": fy + 1.3 * fh_}[name]
+            ok = (ps < lim_in) if name in ("L", "T") else (ps > lim_in)
+            if (strong & ok).any():
+                strong &= ok
+        idx = np.flatnonzero(strong)
+        runs = np.split(idx, np.flatnonzero(np.diff(idx) > 1) + 1)
+        run = runs[-1] if name in ("L", "T") else runs[0]
+        # the step window is 3+3 px wide, so the true border is the centre of the plateau
+        out[name] = int(round((ps[run[0]] + ps[run[-1]]) / 2))
+    nL = out["L"] if out["L"] <= 3 else out["L"] + shrink
+    nT = out["T"] if out["T"] <= 3 else out["T"] + shrink
+    nR = out["R"] if out["R"] >= w - 3 else out["R"] - shrink
+    nB = out["B"] if out["B"] >= h - 3 else out["B"] - shrink
+    return nL, nT, nR, nB, out
+
+
+FACE_MAX_DRIFT = 0.03   # of frame width per second (face centre), same relative rate for face size
+
+
+def _median_filter(a, k=5):
+    pad = k // 2
+    p = np.pad(a, pad, mode="edge")
+    return np.array([np.median(p[i:i + k]) for i in range(len(a))])
+
+
+def track_face(video, start, end, face, fps=2.0):
+    """Face centre and size over time -> [{t, cx, cy, size}] (fractions of the frame; size = face height / frame height;
+    t = seconds from `start`). Detections near the stable face are kept, gaps are interpolated, then median + exponential
+    smoothing + a slew limit (max drift FACE_MAX_DRIFT of frame width per second) so the crop never jumps."""
+    dur = duration(video)
+    s = max(0.0, start or 0.0)
+    e = min(end if end is not None else dur, dur) if dur else (end or s + 20)
+    if e <= s:
+        e = s + 1
+    n = int(min(240, max(2, round((e - s) * fps) + 1)))
+    ts = np.linspace(s, e - min(0.05, (e - s) / 10), n)
+    cap = cv2.VideoCapture(str(video))
+    det = cv2.FaceDetectorYN.create(model_path(), "", (320, 320), 0.7, 0.3, 5000)
+    fx, fy, fw, fh = face
+    raw = []
+    W = H = None
+    ref = np.array([fx + fw / 2, fy + fh / 2, fh], float)   # px of the analysis frame
+    for t in ts:
+        cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000)
+        ok, f = cap.read()
+        if not ok or f is None:
+            raw.append(None); continue
+        h, w = f.shape[:2]
+        sc = min(1.0, MAX_W / w)
+        if sc < 1:
+            f = cv2.resize(f, (int(w * sc), int(h * sc)), interpolation=cv2.INTER_AREA); h, w = f.shape[:2]
+        W, H = w, h
+        det.setInputSize((w, h))
+        _, fs = det.detect(f)
+        best = None
+        for r in ([] if fs is None else fs):
+            cx, cy, hh = r[0] + r[2] / 2, r[1] + r[3] / 2, r[3]
+            if np.hypot(cx - ref[0], cy - ref[1]) < 1.6 * ref[2] and 0.6 < hh / ref[2] < 1.67:
+                d = np.hypot(cx - ref[0], cy - ref[1])
+                if best is None or d < best[0]:
+                    best = (d, cx, cy, hh)
+        if best:
+            raw.append(best[1:]); ref = 0.6 * ref + 0.4 * np.array(best[1:])
+        else:
+            raw.append(None)
+    cap.release()
+    if not W or sum(r is not None for r in raw) < 2:
+        return []
+    ok_i = [i for i, r in enumerate(raw) if r is not None]
+    arr = np.array([raw[i] for i in ok_i], float)
+    rel_t = ts - s
+    cx = np.interp(np.arange(n), ok_i, arr[:, 0]); cy = np.interp(np.arange(n), ok_i, arr[:, 1]); sz = np.interp(np.arange(n), ok_i, arr[:, 2])
+    out = []
+    for v in (cx, cy, sz):
+        v[:] = _median_filter(v, 5)
+        for i in range(1, n):                                  # exponential smoothing
+            v[i] = 0.25 * v[i] + 0.75 * v[i - 1]
+    lim = FACE_MAX_DRIFT * W
+    for i in range(1, n):                                      # slew limit: drift per second, in px
+        dt = max(1e-3, rel_t[i] - rel_t[i - 1])
+        for v, L_ in ((cx, lim), (cy, lim), (sz, 0.06 * max(sz[i - 1], 1))):
+            d = v[i] - v[i - 1]; m = L_ * dt
+            v[i] = v[i - 1] + max(-m, min(m, d))
+    return [{"t": round(float(rel_t[i]), 3), "cx": round(float(cx[i] / W), 4), "cy": round(float(cy[i] / H), 4),
+             "size": round(float(sz[i] / H), 4)} for i in range(n)]
+
+
+def _pw(ts, vs):
+    """Piecewise-linear ffmpeg expression in t (commas escaped for a filtergraph)."""
+    if len(ts) == 1:
+        return f"{vs[0]:.2f}"
+    expr = f"{vs[-1]:.2f}"
+    for i in range(len(ts) - 2, -1, -1):
+        dt = max(1e-3, ts[i + 1] - ts[i])
+        expr = f"if(lt(t\\,{ts[i + 1]:.3f})\\,{vs[i]:.2f}+({vs[i + 1] - vs[i]:.2f})*(t-{ts[i]:.3f})/{dt:.3f}\\,{expr})"
+    return expr
+
+
+def face_crop_expr(track, src_w, src_h, out_w, out_h, eyes_at=0.40, head_fill=0.38):
+    """ffmpeg crop for a face panel of aspect out_w:out_h that follows the smoothed face.
+    head_fill = face box height / crop height (0.38 shows head and shoulders). Eyes sit at eyes_at of the panel height,
+    the face is horizontally centred, the face box never leaves the crop and the crop never leaves the frame.
+    Returns {"w","h" (even ints, fixed: ffmpeg cannot animate crop size), "x","y" (expressions in t, commas escaped as \\,
+    so they drop straight into a filtergraph), "filter": "crop=w:h:x:y"}. track t is seconds from the cut start (use after -ss)."""
+    if not track:
+        return None
+    ar = out_w / out_h
+    size = float(np.median([k["size"] for k in track])) * src_h          # face height px
+    ch = min(size / head_fill, src_h, src_w / ar)
+    cw = ch * ar
+    cw = max(2, int(cw) // 2 * 2); ch = max(2, int(round(cw / ar)) // 2 * 2)
+    if ch > src_h:
+        ch = src_h // 2 * 2; cw = max(2, int(ch * ar) // 2 * 2)
+    xs, ys, ts = [], [], []
+    for k in track:
+        fcx, fcy = k["cx"] * src_w, k["cy"] * src_h
+        fh_ = k["size"] * src_h; fw_ = 0.8 * fh_
+        x = fcx - cw / 2
+        y = (fcy - 0.12 * fh_) - eyes_at * ch                              # eyes sit ~0.12 face heights above the box centre
+        lo, hi = max(0, fcx + fw_ / 2 - cw), min(src_w - cw, fcx - fw_ / 2)  # keep the whole face box inside
+        if lo <= hi: x = min(max(x, lo), hi)
+        lo, hi = max(0, fcy + fh_ / 2 - ch), min(src_h - ch, fcy - fh_ / 2)
+        if lo <= hi: y = min(max(y, lo), hi)
+        xs.append(min(max(x, 0), src_w - cw)); ys.append(min(max(y, 0), src_h - ch)); ts.append(k["t"])
+    x_e, y_e = _pw(ts, xs), _pw(ts, ys)
+    return {"w": cw, "h": ch, "x": x_e, "y": y_e, "filter": f"crop={cw}:{ch}:{x_e}:{y_e}"}
+
+
+def has_gameplay(video, start, end, cam_box, info=False):
+    """True when the area outside the cam box is game footage that differs from the cam scene.
+    cam_box = [x,y,w,h] fractions. None, or a box covering most of the frame, means a full-screen camera -> False.
+    A face-mode box is a crop of the same room, so its outside matches it (similar colour histograms) -> False."""
+    def ret(v, d):
+        return (v, d) if info else v
+    if not cam_box:
+        return ret(False, {"why": "no cam box"})
+    frames = sample_frames(video, start, end, 8)
+    if len(frames) < 3:
+        return ret(False, {"why": "too few frames"})
+    h, w = frames[0].shape[:2]
+    x, y, bw, bh = cam_box
+    if bw * bh > 0.55:
+        return ret(False, {"why": "cam covers the frame"})
+    x0, y0, x1, y1 = int(x * w), int(y * h), int((x + bw) * w), int((y + bh) * h)
+    inside = np.zeros((h, w), np.uint8); inside[y0:y1, x0:x1] = 255
+    outside = 255 - inside
+    # ignore a thin margin so the cam border does not leak into the outside histogram
+    outside = cv2.erode(outside, np.ones((9, 9), np.uint8))
+    hist = lambda m, hsv: cv2.normalize(cv2.calcHist([hsv], [0, 1, 2], m, [12, 4, 6], [0, 180, 0, 256, 0, 256]), None, 1, 0, cv2.NORM_L1).flatten()
+    sims = []
+    for f in frames:
+        hsv = cv2.cvtColor(f, cv2.COLOR_BGR2HSV)
+        sims.append(cv2.compareHist(hist(inside, hsv), hist(outside, hsv), cv2.HISTCMP_BHATTACHARYYA))
+    dist = float(np.median(sims))                      # 0 = same scene, 1 = nothing in common
+    gray = np.array([cv2.cvtColor(f, cv2.COLOR_BGR2GRAY) for f in frames]).astype(np.float32)
+    om = outside > 0
+    content = float(gray.mean(axis=0)[om].std())                          # spatial variety outside
+    motion = float(np.abs(np.diff(gray, axis=0))[:, om].mean())           # frame-to-frame change outside
+    # the picture just outside the cam is a continuation of it for IRL footage: a plain-colour or flat outside is not gameplay
+    # an overlay has a hard straight border all around; a crop of one IRL scene is continuous across the box edge
+    Mg = cv2.GaussianBlur(np.median(np.array(frames), axis=0).astype(np.float32), (3, 3), 0)
+    fr_ = []
+    for p, vert, (a, b) in ((x0, 1, (y0, y1)), (x1, 1, (y0, y1)), (y0, 0, (x0, x1)), (y1, 0, (x0, x1))):
+        if p <= 4 or p >= (w if vert else h) - 4:
+            continue                                   # docked to the frame edge: no border there
+        m = int(0.1 * (b - a)); a, b = a + m, b - m
+        best = 0.0
+        for q in range(p - 3, p + 4):
+            if vert: s = np.abs(Mg[a:b, q + 1:q + 4].mean(1) - Mg[a:b, q - 3:q].mean(1)).sum(1)
+            else: s = np.abs(Mg[q + 1:q + 4, a:b].mean(0) - Mg[q - 3:q, a:b].mean(0)).sum(1)
+            best = max(best, float((s > 30).mean()))
+        fr_.append(best)
+    border = float(np.median(fr_)) if fr_ else 0.0
+    has_content = content > 12 or motion > 3
+    res = has_content and ((border >= 0.65 and dist > 0.38) or dist > 0.6)
+    return ret(bool(res), {"hist_dist": round(dist, 3), "border": round(border, 2), "content": round(content, 1), "motion": round(motion, 2)})
+
+
 def where(box):
     x, y, bw, bh = box
     cx, cy = x + bw / 2, y + bh / 2
@@ -219,7 +457,11 @@ def find_cam(video, start=None, end=None):
     fx, fy, fw, fh = face
     fracface = [round(fx / w, 4), round(fy / h, 4), round(fw / w, 4), round(fh / h, 4)]
     if fw / w > 0.5:
-        return {"mode": "none", "confidence": 0.0, "face": fracface,
+        try:
+            track = track_face(video, start, end, face)
+        except Exception:
+            track = []
+        return {"mode": "none", "confidence": 0.0, "face": fracface, "face_track": track,
                 "reason": "stable face is huge (full-frame talking head, not a webcam overlay)"}
     stab = hits / len(frames)
 
@@ -239,7 +481,15 @@ def find_cam(video, start=None, end=None):
         contains = L <= fx and R >= fx + fw and T <= fy and B >= fy + fh
         sane = 0.08 < bw / w < 0.6 and 0.08 < bh / h < 0.7 and contains and bw > fw * 1.2 and bh > fh * 1.2
         if sane:
-            box = [round(L / w, 4), round(T / h, 4), round(bw / w, 4), round(bh / h, 4)]
+            try:
+                sf = sample_frames(video, start, end, SNAP_FRAMES)
+                nL, nT, nR, nB, raw = snap_edges(sf if len(sf) >= 8 else frames, (L, T, R, B), face=(fx, fy, fw, fh))
+                if nR - nL > fw * 1.2 and nB - nT > fh * 1.2 and nL <= fx and nR >= fx + fw and nT <= fy and nB >= fy + fh:
+                    L, T, R, B = nL, nT, nR, nB; bw, bh = R - L, B - T
+                    r["notes"] = list(r["notes"]) + [f"snapped {raw}"]
+            except Exception as ex:  # snapping is a refinement: never lose the cam over it
+                r["notes"] = list(r["notes"]) + [f"snap failed: {ex}"]
+            box =[round(L / w, 4), round(T / h, 4), round(bw / w, 4), round(bh / h, 4)]
             conf = round(min(1.0, 0.55 + 0.25 * stab + 0.2 * (1 if n_found == 4 else 0.5)), 2)
             return {"mode": "cam", "box": box, "face": fracface, "confidence": conf,
                     "reason": f"face stable in {hits}/{len(frames)} frames, rectangle edges found on {n_found}/4 sides {r['notes']}",
@@ -252,7 +502,11 @@ def find_cam(video, start=None, end=None):
     x0 = min(max(0, ccx - cw / 2), w - cw); y0 = min(max(0, ccy - ch / 2), h - ch)
     box = [round(x0 / w, 4), round(y0 / h, 4), round(cw / w, 4), round(ch / h, 4)]
     conf = round(min(0.8, 0.35 + 0.4 * stab), 2)
-    return {"mode": "face", "box": box, "face": fracface, "confidence": conf,
+    try:
+        track = track_face(video, start, end, face)
+    except Exception:
+        track = []
+    return {"mode": "face", "box": box, "face": fracface, "confidence": conf, "face_track": track,
             "reason": f"face stable in {hits}/{len(frames)} frames but no clean rectangle ({n_found}/4 sides found); face-centred crop",
             "summary": f"face (no cam border): {where(box)}"}
 

@@ -20,7 +20,7 @@ Face on top, game below, a big title on the seam. The format of most viral GTA 6
 
 ```
 python "${CLAUDE_PLUGIN_ROOT}/scripts/cut.py" jobs/<id> --pick 1 --layout react --cam auto \
-  --title "Speed REALIZED why GTA 6 took ROCKSTAR 13 YEARS" --title-style box --captions bubble --credit "@<streamer>"
+  --title "Speed REALIZED why GTA 6 took ROCKSTAR 13 YEARS" --title-style box --captions bubble
 ```
 
 - `--cam auto` finds the streamer's webcam itself (face detection plus the webcam frame around it). It prints where it found the cam. If it finds no stable face it falls back to the blur layout and says so. Check the first frame once; if the crop is wrong, pass `--cam x:y:w:h` fractions.
@@ -30,6 +30,6 @@ python "${CLAUDE_PLUGIN_ROOT}/scripts/cut.py" jobs/<id> --pick 1 --layout react 
 
 ## Rules
 
-- Clip a streamer only inside their campaign or with permission. Credit every clip.
+- Clip a streamer only inside their campaign or with permission. Credit them in the post caption, not on the video.
 - Titles describe what happened. Never invent a quote or an opinion.
 - Run `rule-check` before posting. No spoilers in the title during launch week.
