@@ -26,20 +26,25 @@ Ce skill tourne sans personne devant l'écran. L'utilisateur l'a activé lui-mê
 2. Garde les lives **en anglais** qui montrent vraiment GTA 6. Priorité aux `streamers_prioritaires`, puis au plus grand nombre de spectateurs.
 3. Écarte : les chaînes de `exclus` et de `retraits.md`, les fuites, « play early », le piratage, l'argent ou les bots de GTA Online.
 4. Ne reprends pas la chaîne du passage précédent (dernière ligne de `registre.csv`), sauf si c'est la seule.
-5. Aucun live valable : note-le dans `journal.md` et arrête-toi.
+5. **Vérifie l'image avant d'enregistrer** : `$PY "S/live.py" <url> --apercu` écrit `jobs/<id>/live/apercu.jpg`. Regarde-la. Un titre qui dit « GTA 6 » ne suffit pas : si l'écran montre un autre jeu, un écran d'attente ou un menu, passe au live suivant.
+6. Aucun live valable : note-le dans `journal.md` et arrête-toi.
 
 ## 2. Regarder
 
 `$PY "S/live.py" <url> --minutes <minutes_de_live> --baseline 120`
 
-La commande dure le temps du live demandé. Elle écrit `jobs/<id>/live/spike_<n>.mp4` à chaque pic du chat, et `spikes.md`. Pas de pic : note-le et arrête-toi.
+La commande dure le temps du live demandé. Elle écrit `jobs/<id>/live/spike_<n>.mp4` à chaque pic du chat, `spikes.md`, et à la fin `jobs/<id>/live/enregistrement.mp4` (tout l'enregistrement recollé).
 
 ## 3. Choisir et découper (au plus `clips_par_passage` clips)
 
-Pour chaque pic, du plus fort au plus faible (colonne msgs de `spikes.md`) :
+Les sources, dans l'ordre :
+- les pics du chat (`spike_<n>.mp4`), du plus fort au plus faible (colonne msgs de `spikes.md`) ;
+- s'il n'y a aucun pic (le chat YouTube n'est pas toujours lisible) : `enregistrement.mp4`, avec `--top 3` à l'étape 1.
 
-1. `$PY "S/moments.py" jobs/<id>/live/spike_<n>.mp4 --top 1 --min 12 --max 35` crée un nouveau job pour ce pic.
-2. Lis son `candidates.md`. Écarte : spoilers de l'histoire pendant la semaine de sortie, nudité, propos haineux, moment sans le jeu à l'écran, tout ce qui ressemble à une fuite.
+Pour chaque source :
+
+1. `$PY "S/moments.py" <source> --top 1 --min 12 --max 35` crée un nouveau job (`--top 3` pour `enregistrement.mp4`).
+2. Lis son `candidates.md`, puis regarde une image de chaque moment (`ffmpeg -ss <début+5> -i <source> -frames:v 1 <job>/moment_<n>.jpg`). Écarte : autre jeu que GTA 6, cinématique de l'histoire pendant la semaine de sortie (spoiler), nudité, propos haineux, moment sans le jeu à l'écran, tout ce qui ressemble à une fuite.
 3. Déjà dans `registre.csv` (même chaîne, même moment) ? Passe au suivant.
 4. Sous-titres français, traduits par toi : `cut.py <job> --pick 1 --export-sentences`, puis écris `edits/clip_1_fr.txt` (une ligne par phrase, même ordre, français oral, rien d'inventé).
 5. Titre de réaction écrit selon `accroches` : il décrit ce qui s'est passé, sans citation inventée, sans spoiler.

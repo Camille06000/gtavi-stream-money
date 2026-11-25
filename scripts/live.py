@@ -212,7 +212,20 @@ def main():
     ap.add_argument("--ratio", type=float, default=3); ap.add_argument("--min-msgs", type=int, default=8)
     ap.add_argument("--cooldown", type=float, default=45)
     ap.add_argument("--lag", type=float, default=8, help="seconds to shift the clip later: stream delay + chat reaction time")
+    ap.add_argument("--apercu", action="store_true",
+                    help="enregistre seulement une image du live dans live/apercu.jpg, pour vérifier le jeu avant d'enregistrer")
     a = ap.parse_args()
+
+    if a.apercu:
+        ld = job_dir(a.url) / "live"; ld.mkdir(exist_ok=True)
+        r = run(ytdlp_base() + ["-g", "-f", "b[height<=720]/bv*[height<=720]/b", a.url], capture=True, check=False)
+        urls = [u for u in (r.stdout or "").split() if u.startswith("http")]
+        if not urls:
+            sys.exit("impossible d'obtenir l'adresse du flux (la vidéo est-elle bien en direct ?)")
+        img = ld / "apercu.jpg"
+        run([tool("ffmpeg"), "-y", "-v", "error", "-i", urls[0], "-frames:v", "1", "-vf", "scale=960:-2", str(img)])
+        print(f"aperçu : {img}")
+        return
 
     d = job_dir(a.url)
     ld = d / "live"
@@ -292,7 +305,27 @@ def main():
         for p in pending:
             finish_one(p[:4], final=True)
         save_json(ld / "live.json", {"url": a.url, "spikes": spikes, "minutes": a.minutes})
+        full = assemble(ld)
     print(f"terminé : {spikes} pic(s). Voir {spikes_md}")
+    if full:
+        print(f"enregistrement complet : {full}")
+        if not spikes:
+            print("Aucun pic du chat (le chat YouTube n'est pas toujours lisible) : "
+                  f"lance moments.py sur {full} pour trouver les meilleurs moments au son et aux mots.")
+
+
+def assemble(ld):
+    """Recolle les segments enregistrés en une seule vidéo (copie sans réencodage) : live/enregistrement.mp4."""
+    segs = sorted(ld.glob("seg_*.ts"))
+    if not segs:
+        return None
+    lst = ld / "segments.txt"
+    lst.write_text("".join(f"file '{s.name}'\n" for s in segs), encoding="utf-8")
+    out = ld / "enregistrement.mp4"
+    r = run([tool("ffmpeg"), "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(lst),
+             "-c", "copy", "-bsf:a", "aac_adtstoasc", "-movflags", "+faststart", str(out)], check=False)
+    lst.unlink(missing_ok=True)
+    return out if r.returncode == 0 and out.exists() else None
 
 
 if __name__ == "__main__":
