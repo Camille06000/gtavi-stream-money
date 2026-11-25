@@ -1,0 +1,11 @@
+{
+  "mode": "test",
+  "plateformes": ["youtube", "instagram", "tiktok"],
+  "youtube_visibilite": "public",
+  "max_par_jour": 4,
+  "minutes_de_live": 30,
+  "clips_par_passage": 2,
+  "streamers_prioritaires": ["IShowSpeed", "Kai Cenat", "xQc"],
+  "exclus": [],
+  "fuseau": "Europe/Paris"
+}

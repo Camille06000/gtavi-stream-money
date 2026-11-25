@@ -20,10 +20,12 @@ def ts(t):
 
 
 import re as _re
-_SLURS = _re.compile(r"\b(nigg\w*|n[i1]gg?a\w*|f[a@]gg?\w*|retard\w*|tranny\w*|chink\w*|spic\w*|kike\w*)\b", _re.I)
+_SLURS = _re.compile(r"\b(nigg\w*|n[i1]gg?a\w*|f[a@]gg?\w*|retard\w*|tranny\w*|chink\w*|spic\w*|kike\w*"
+                     r"|n[eè]gre\w*|n[eé]gro\w*|bougnoul\w*|bicot\w*|youpin\w*|chinetoque\w*|p[eé]d[eé]s?|pd|tapette\w*|gogol\w*|mongol\w*)\b", _re.I)
 
 
-_SWEARS = _re.compile(r"\b(fuck\w*|motherfuck\w*|shit\w*|bitch\w*|cunt\w*|dick\w*|pussy\w*|asshole\w*|bastard\w*|whore\w*|slut\w*)\b", _re.I)
+_SWEARS = _re.compile(r"\b(fuck\w*|motherfuck\w*|shit\w*|bitch\w*|cunt\w*|dick\w*|pussy\w*|asshole\w*|bastard\w*|whore\w*|slut\w*"
+                      r"|putain\w*|merde\w*|connard\w*|connasse\w*|salope\w*|encul\w*|pute\w*|bordel|nique\w*|ntm|fdp|b[aâ]tard\w*|couilles?|chier)\b", _re.I)
 
 
 def _mask(m):
@@ -208,25 +210,40 @@ def main():
     ap.add_argument("--allow-profanity", action="store_true", help="keep swear words in captions (slurs are always masked)")
     ap.add_argument("--cam", default="auto", help="auto (find the webcam) or x:y:w:h fractions")
     ap.add_argument("--start", type=float); ap.add_argument("--end", type=float)
+    ap.add_argument("--translate", metavar="LANGUE",
+                    help="traduction automatique des sous-titres (ex. fr) en gardant la mise en page, réaction comprise")
+    ap.add_argument("--export-sentences", action="store_true",
+                    help="écrit les phrases du clip (une par ligne) dans edits/clip_<n>_phrases.txt puis s'arrête")
+    ap.add_argument("--translations", metavar="FICHIER",
+                    help="sous-titres traduits à la main : une ligne par phrase de clip_<n>_phrases.txt, dans le même ordre")
     a = ap.parse_args()
     d = Path(a.job); c = load_json(d / "candidates.json")
     pick = next(x for x in c["candidates"] if x["n"] == a.pick)
     s0 = a.start if a.start is not None else pick["start"]; e0 = a.end if a.end is not None else pick["end"]
     words = load_json(d / "transcript.json")
     out = d / "edits"; out.mkdir(exist_ok=True)
+    if a.export_sentences:
+        from translate import sentences  # import tardif : translate importe cut
+        sents = sentences([w for w in words if s0 <= w['s'] < e0 and w['w']])
+        ph = out / f"clip_{a.pick}_phrases.txt"
+        ph.write_text("\n".join(" ".join(w["w"] for w in s) for s in sents) + "\n", encoding="utf-8")
+        print(f"{len(sents)} phrases -> {ph}\n"
+              f"Écris la traduction ligne par ligne (même ordre, même nombre de lignes) dans un fichier, "
+              f"puis relance avec --translations <fichier>.")
+        return
     layout, cam, side = a.layout, a.cam, 'right'
     face_expr = None
     if layout in ('react', 'facecam') and cam == 'auto':
         from facecam import find_cam
         r = find_cam(c['source'], s0, e0)
         if layout == 'react' and r.get('mode') not in ('cam', 'face'):
-            sys.exit(f"skipped: no streamer face over gameplay in this moment ({r.get('mode')}: {r.get('reason', '')}). "
-                     "React clips need the game on screen with the cam as a separate box. Pick another moment or stream.")
+            sys.exit(f"ignoré : pas de visage de streamer sur du gameplay dans ce moment ({r.get('mode')} : {r.get('reason', '')}). "
+                     "Les clips réaction demandent le jeu à l'écran et la webcam dans un cadre séparé. Choisis un autre moment ou passe --cam x:y:w:h.")
         if layout == 'react':
             from facecam import has_gameplay, face_crop_expr
             if not has_gameplay(c['source'], s0, e0, r['box']):
-                sys.exit("skipped: the area outside the webcam is not gameplay (same scene or no game on screen). "
-                         "Pick a moment where GTA 6 is on screen.")
+                sys.exit("ignoré : la zone hors webcam n'est pas du gameplay (même scène ou pas de jeu à l'écran). "
+                         "Choisis un moment où GTA 6 est à l'écran, ou passe --cam x:y:w:h.")
             if r.get('mode') == 'face' and r.get('face_track'):
                 from common import ffprobe as _fp
                 _vs = [x for x in _fp(c['source'])['streams'] if x.get('codec_type') == 'video'][0]
@@ -236,7 +253,7 @@ def main():
                 print(f'facecam: cam borders L{bnd[0]} T{bnd[1]} R{bnd[2]} B{bnd[3]} px')
                 fe = face_crop_expr(r['face_track'], sw_, sh_, W, TOP, bounds=bnd)
                 face_expr = (fe['w'], fe['h'], fe['x'], fe['y'])
-                print(f"facecam: no clean cam frame, tracking the face ({r.get('summary', '')})")
+                print(f"facecam : pas de cadre de webcam net, suivi du visage ({r.get('summary', '')})")
         if r.get('mode') in ('cam', 'face'):
             bx = list(r['box'])
             if r['mode'] == 'face':  # no webcam frame: widen the face crop so it is not a blurry close-up
@@ -245,9 +262,9 @@ def main():
                 bx = [min(max(0.0, cx - bw / 2), 1 - bw), min(max(0.0, cy - bh / 2), 1 - bh), bw, bh]
             cam = ':'.join(f'{v:.4f}' for v in bx)
             side = 'left' if r['box'][0] + r['box'][2] / 2 < 0.5 else 'right'
-            print(f"facecam: {r.get('mode')} box {cam} ({r.get('summary', '')})")
+            print(f"facecam : {r.get('mode')} cadre {cam} ({r.get('summary', '')})")
         else:
-            print(f"facecam: no stable face found ({r.get('reason', '')}), using the blur layout")
+            print(f"facecam : aucun visage stable ({r.get('reason', '')}), mise en page floutée utilisée")
             layout = 'blur'
     elif layout in ('react', 'facecam') and cam != 'auto':
         side = 'left' if float(cam.split(':')[0]) + float(cam.split(':')[2]) / 2 < 0.5 else 'right'
@@ -264,6 +281,20 @@ def main():
     ass = out / f"clip_{a.pick}.ass"
     caps = a.captions
     cap_words = words if caps != 'none' else []
+    if (a.translate or a.translations) and cap_words:
+        from translate import translator, translate_words, sentences, spread  # import tardif : translate importe cut
+        clip_words = [w for w in cap_words if s0 <= w['s'] < e0 and w['w']]
+        if a.translations:
+            lines = [l.strip() for l in Path(a.translations).read_text(encoding="utf-8").splitlines() if l.strip()]
+            sents = sentences(clip_words)
+            if len(lines) != len(sents):
+                sys.exit(f"{a.translations} : {len(lines)} lignes pour {len(sents)} phrases. "
+                         "Une ligne traduite par phrase de clip_<n>_phrases.txt, dans le même ordre.")
+            cap_words = spread(sents, lines)
+            print(f"sous-titres traduits depuis {a.translations} ({len(cap_words)} mots)")
+        else:
+            cap_words = translate_words(translator(a.translate), clip_words)
+            print(f"sous-titres traduits automatiquement en « {a.translate} » ({len(cap_words)} mots)")
     ass.write_text(build_ass(cap_words, s0, e0, a.hook, cap_y, title=title, caps=caps, profanity=a.allow_profanity), encoding="utf-8")
     src = None; gx = None
     if layout == 'react':
@@ -278,7 +309,7 @@ def main():
          "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
          "-ar", "48000", "-movflags", "+faststart", str(mp4)])
     info = c.get("info", {})
-    save_json(out / f"clip_{a.pick}.json", {"file": str(mp4), "start": s0, "end": e0, "layout": layout, "hook": a.hook or a.title, "title": a.title, "cam": cam,
+    save_json(out / f"clip_{a.pick}.json", {"file": str(mp4), "start": s0, "end": e0, "layout": layout, "hook": a.hook or a.title, "title": a.title, "cam": cam, "translated": a.translate,
                                             "source_url": info.get("webpage_url"), "source_title": info.get("title"),
                                             "source_channel": info.get("channel") or info.get("uploader")})
     print(mp4)

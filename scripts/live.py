@@ -16,8 +16,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from common import job_dir, run, save_json, tool, ytdlp_base
 
-HYPE = re.compile(r"(?i:LMAO|KEKW|LOL|CLIP|HOLY|NO WAY)|\bW+\b|[💀😂🔥]")
-NOISE = re.compile(r"(?i)giveaway|\braid(ing|ed)?\b|\bbrb\b|be right back|ad break|sponsor|subscribe|discord\.gg|https?://|promo code|follow me")
+HYPE = re.compile(r"(?i:LMAO|KEKW|LOL|CLIP|HOLY|NO WAY|X?PTDR|MDR|JPP|OUF|WESH|CHOQU\w*)|\bW+\b|[💀😂🔥]")
+NOISE = re.compile(r"(?i)giveaway|\braid(ing|ed)?\b|\bbrb\b|be right back|ad break|sponsor|subscribe|discord\.gg|https?://|promo code|follow me"
+                   r"|concours|abonne[sz]?[- ]?(toi|vous)|code promo|\bpub\b|je reviens|\bpause\b|suivez[- ]moi")
 STOP = set("the a an and or to of is it in i you that this on for with was are be so but not my me we he she they what just like at as if do get".split())
 WORD = re.compile(r"[\w']{2,}|[💀😂🔥]")
 
@@ -137,7 +138,7 @@ class Recorder:
         r = run(ytdlp_base() + ["-g", "-f", "b[height<=720]/bv*[height<=720]+ba/b", url], capture=True)
         urls = [u for u in r.stdout.split() if u.startswith("http")]
         if not urls:
-            sys.exit("could not get a stream URL (is the video live?)")
+            sys.exit("impossible d'obtenir l'adresse du flux (la vidéo est-elle bien en direct ?)")
         cmd = [tool("ffmpeg"), "-y", "-loglevel", "warning"]
         for u in urls:
             cmd += ["-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5", "-i", u]
@@ -241,7 +242,7 @@ def main():
                                 creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
         tail = ChatTail(ld, start)
     pending, last_spike, spikes = [], 0.0, 0
-    print(f"recording {a.minutes:g} min -> {ld}  (Ctrl+C to stop)", flush=True)
+    print(f"enregistrement {a.minutes:g} min -> {ld}  (Ctrl+C pour arrêter)", flush=True)
 
     def finish_one(item, final=False):
         nonlocal spikes
@@ -253,7 +254,7 @@ def main():
         row = f"| {iso} | {off} | {rate} | {', '.join(words)} | {out.name if ok else 'CUT FAILED'} |\n"
         with open(spikes_md, "a", encoding="utf-8") as fh:
             fh.write(row)
-        print(("clip " + out.name if ok else "cut failed") + f" (spike at {off}, {rate} msgs/{a.window}s, {words})", flush=True)
+        print(("clip " + out.name if ok else "découpe échouée") + f" (pic à {off}, {rate} msgs/{a.window}s, {words})", flush=True)
 
     try:
         while now() < end_at and rec.alive():
@@ -273,12 +274,12 @@ def main():
                 if raw >= a.min_msgs and rate_w >= a.ratio * max(bw, 0.02):
                     n += 1; spikes += 1; last_spike = t
                     words = tail.top_words(e - a.window + 1, e)
-                    print(f"SPIKE #{n}: {raw} msgs/{a.window}s vs baseline {bw * a.window:.1f} weighted", flush=True)
+                    print(f"PIC n°{n} : {raw} msgs/{a.window}s contre une base de {bw * a.window:.1f} (pondérée)", flush=True)
                     pending.append((n, float(e), raw, words, t + a.after + max(a.lag, 0)))
             for p in [p for p in pending if p[4] <= t]:
                 pending.remove(p); finish_one(p[:4])
     except KeyboardInterrupt:
-        print("stopping...", flush=True)
+        print("arrêt...", flush=True)
     finally:
         rec.stop()
         if login:
@@ -291,7 +292,7 @@ def main():
         for p in pending:
             finish_one(p[:4], final=True)
         save_json(ld / "live.json", {"url": a.url, "spikes": spikes, "minutes": a.minutes})
-    print(f"done: {spikes} spike(s). See {spikes_md}")
+    print(f"terminé : {spikes} pic(s). Voir {spikes_md}")
 
 
 if __name__ == "__main__":

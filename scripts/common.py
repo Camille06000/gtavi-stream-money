@@ -2,6 +2,13 @@
 import hashlib, json, os, re, shutil, subprocess, sys
 from pathlib import Path
 
+# Console Windows (cp1252) : forcer l'UTF-8 pour les accents, emojis et espaces fines des titres.
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 ROOT = Path(os.environ.get("CLIP_DESK_HOME", Path.cwd()))
 JOBS = ROOT / "jobs"
 
@@ -9,7 +16,7 @@ JOBS = ROOT / "jobs"
 def tool(name):
     p = shutil.which(name)
     if not p:
-        sys.exit(f"{name} not found. Run the setup skill first (it installs ffmpeg and yt-dlp).")
+        sys.exit(f"{name} introuvable. Lance d'abord le skill installation (il installe ffmpeg et yt-dlp).")
     return p
 
 
@@ -18,7 +25,7 @@ def run(cmd, check=True, capture=False):
                        stdout=subprocess.PIPE if capture else None, stderr=subprocess.PIPE if capture else None)
     if check and r.returncode != 0:
         msg = (r.stderr or "")[-1500:] if capture else ""
-        sys.exit(f"command failed ({r.returncode}): {' '.join(map(str, cmd))[:200]}\n{msg}")
+        sys.exit(f"commande en échec ({r.returncode}) : {' '.join(map(str, cmd))[:200]}\n{msg}")
     return r
 
 

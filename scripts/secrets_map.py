@@ -23,16 +23,19 @@ STATUSES = ["unverified", "verified", "wrong"]
 
 # secret-type mentions, per category (first match order decides the category)
 CAT_WORDS = [
-    ("easter_egg", r"easter eggs?|hidden detail|reference to|secret message"),
-    ("car", r"rare cars?|hidden cars?|secret cars?|unique vehicle|spawns?\b|car location"),
-    ("collectible", r"collectibles?|collect(?:ing)? all|hidden packages?|stunt jumps?|treasure|souvenirs?"),
-    ("money", r"cash|money|stash|safe code|payout|robbery loot"),
-    ("place", r"hidden (?:place|spot|location|area|room|cave|island)|secret (?:place|spot|location|area|room|cave|island)|location|unlocks?"),
+    ("easter_egg", r"easter eggs?|hidden detail|reference to|secret message|clin d'[oœ]eil|r[ée]f[ée]rence [àa]|message secret|d[ée]tail cach[ée]"),
+    ("car", r"rare cars?|hidden cars?|secret cars?|unique vehicle|spawns?\b|car location|voitures? rares?|voitures? cach[ée]es?|v[ée]hicule unique|apparition"),
+    ("collectible", r"collectibles?|collect(?:ing)? all|hidden packages?|stunt jumps?|treasure|souvenirs?|objets? de collection|tr[ée]sors?|cascades?"),
+    ("money", r"cash|money|stash|safe code|payout|robbery loot|argent|fric|planque|magot|code du coffre|butin"),
+    ("place", r"hidden (?:place|spot|location|area|room|cave|island)|secret (?:place|spot|location|area|room|cave|island)|location|unlocks?"
+              r"|(?:lieu|endroit|zone|salle|grotte|[îi]le) (?:cach[ée]e?|secr[eè]te?)|emplacement|d[ée]bloqu"),
 ]
-KEYWORDS = re.compile(r"\b(hidden|secrets?|easter eggs?|money|cash|stash|collectibles?|rare cars?|locations?|spawns?|unlocks?|glitch[- ]free)\b", re.I)
+KEYWORDS = re.compile(r"\b(hidden|secrets?|easter eggs?|money|cash|stash|collectibles?|rare cars?|locations?|spawns?|unlocks?|glitch[- ]free"
+                      r"|cach[ée]e?s?|secr[eè]te?s?|argent|fric|planques?|magots?|collection|rares?|emplacements?|lieux?|d[ée]bloqu\w*|tr[ée]sors?)\b", re.I)
 # never collected: exploits, glitches, dupes, leaks, early play
 BANNED = re.compile(r"glitch(?![- ]free)|\bexploit|\bdupe|duplicat|infinite (?:money|cash)|unlimited (?:money|cash)|money (?:glitch|hack|exploit)|"
-                    r"\bleak(?:s|ed)?\b|play(?:ing)? early|early access|before (?:the )?release|pre-?release|\bcheats?\b|\bmods?\b|\bhack", re.I)
+                    r"\bleak(?:s|ed)?\b|play(?:ing)? early|early access|before (?:the )?release|pre-?release|\bcheats?\b|\bmods?\b|\bhack"
+                    r"|argent (?:infini|illimit[ée])|\bfuite|jouer en avance|acc[eè]s anticip[ée]|avant la sortie|\btriche", re.I)
 DEDUPE_RATIO = 0.78
 
 
@@ -192,53 +195,53 @@ def cmd_posts(a):
     rows = [r for r in load_rows(csv_path(a)) if r["status"] == "verified"]
     ready = [r for r in rows if r["where"] and r["how"] and r["source_channel"] and not BANNED.search(f"{r['name']} {r['where']} {r['how']}")]
     left = len(rows) - len(ready)
-    out = ["# Secrets posts (verified entries only)", "",
-           "Check each tip once more in game before posting. Credit line stays on every post. No hashtags on X.", ""]
+    out = ["# Posts secrets (entrées vérifiées uniquement)", "",
+           "Revérifie chaque astuce en jeu avant de publier. La ligne de crédit reste sur chaque post. Pas de hashtags sur X.", ""]
     if not ready:
-        out.append("No verified entries yet. Run `secrets_map.py verify <id> --by ...` after you checked one in game.")
+        out.append("Aucune entrée vérifiée pour l'instant. Lance `secrets_map.py verify <id> --by ...` après l'avoir testée en jeu.")
     for r in ready:
         steps = [s.strip() for s in re.split(r"(?<=[.;])\s+|\n", r["how"]) if s.strip()][:4]
         body = "\n".join(f"{i}. {s}" for i, s in enumerate(steps, 1)) or r["how"]
         out += [f"## {r['id']} {r['name']} ({r['category']})", "",
-                "HOW TO tip:", "", "```",
-                f"HOW TO FIND {r['name'].upper()} IN GTA 6", "", f"Where: {r['where']}", "", body, "", credit(r), "```", "",
-                "Spotlight:", "", "```",
+                "Astuce « COMMENT » :", "", "```",
+                f"COMMENT TROUVER {r['name'].upper()} DANS GTA 6", "", f"Où : {r['where']}", "", body, "", credit(r), "```", "",
+                "Coup de projecteur :", "", "```",
                 f"{r['name']}: {r['where']}", "", credit(r), "```", ""]
     if len(ready) >= 3:
         pick = ready[:5]
-        out += [f"## Carousel outline: {len(pick)} hidden spots in Leonida", "",
-                f"- Slide 1 (cover): {len(pick)} hidden spots in Leonida, all checked in game",
-                *[f"- Slide {i + 1}: {r['name']}. {r['where']} Credit: {r['source_channel']}" for i, r in enumerate(pick)],
-                f"- Slide {len(pick) + 2} (end): Which one did you find first? Credit to the creators on every slide.", "",
-                "Caption (X, no hashtags):", "", "```",
-                f"{len(pick)} hidden spots in Leonida", "",
+        out += [f"## Plan du carrousel : {len(pick)} lieux cachés à Leonida", "",
+                f"- Slide 1 (couverture) : {len(pick)} lieux cachés à Leonida, tous vérifiés en jeu",
+                *[f"- Slide {i + 2} : {r['name']}. {r['where']} Crédit : {r['source_channel']}" for i, r in enumerate(pick)],
+                f"- Slide {len(pick) + 2} (fin) : Lequel tu as trouvé en premier ? Crédit aux créateurs sur chaque slide.", "",
+                "Légende (X, sans hashtags) :", "", "```",
+                f"{len(pick)} lieux cachés à Leonida", "",
                 *[f"- {r['name']} ({r['source_channel']})" for r in pick], "```", ""]
     elif ready:
-        out += ["_Carousel needs at least 3 verified entries._", ""]
+        out += ["_Le carrousel demande au moins 3 entrées vérifiées._", ""]
     if left:
-        out += [f"_{left} verified entries skipped: missing where/how/channel or exploit wording._"]
+        out += [f"_{left} entrées vérifiées ignorées : où/comment/chaîne manquant, ou formulation d'exploit._"]
     Path(a.out).write_text("\n".join(out), encoding="utf-8")
-    print(f"{len(ready)} verified entries -> {a.out}")
+    print(f"{len(ready)} entrées vérifiées -> {a.out}")
 
 
 def cmd_map(a):
     rows = load_rows(csv_path(a))
-    out = ["# GTA 6 secrets map", "", "Only verified entries are safe to post. Unverified and wrong are listed for tracking.", ""]
+    out = ["# Carte des secrets GTA 6", "", "Seules les entrées vérifiées peuvent être publiées. Les non vérifiées et fausses sont listées pour le suivi.", ""]
     esc = lambda s: s.replace("|", "/").replace("\n", " ")
     for cat in CATS:
         grp = [r for r in rows if r["category"] == cat]
         if not grp:
             continue
         out += [f"## {cat.replace('_', ' ').title()} ({len(grp)})", "",
-                "| id | name | where | how | status | verified by | source |", "| --- | --- | --- | --- | --- | --- | --- |"]
+                "| id | nom | où | comment | statut | vérifié par | source |", "| --- | --- | --- | --- | --- | --- | --- |"]
         for r in sorted(grp, key=lambda r: (STATUSES.index(r["status"]) if r["status"] in STATUSES else 9, r["id"])):
             src = f"[{esc(r['source_channel']) or 'link'}]({r['source_url_with_timestamp']})" if r["source_url_with_timestamp"] else esc(r["source_channel"])
             out.append(f"| {r['id']} | {esc(r['name'])} | {esc(r['where'])} | {esc(r['how'])} | {r['status']} | {esc(r['verified_by'])} | {src} |")
         out.append("")
     if len(out) == 4:
-        out.append("No entries yet.")
+        out.append("Aucune entrée pour l'instant.")
     Path(a.out).write_text("\n".join(out), encoding="utf-8")
-    print(f"{len(rows)} entries -> {a.out}")
+    print(f"{len(rows)} entrées -> {a.out}")
 
 
 def main():
@@ -252,8 +255,8 @@ def main():
     s.add_argument("--url", default=""); s.add_argument("--notes", default=""); s.set_defaults(f=cmd_add)
     s = sub.add_parser("verify"); s.add_argument("id"); s.add_argument("--by", required=True); s.set_defaults(f=cmd_verify)
     s = sub.add_parser("wrong"); s.add_argument("id"); s.set_defaults(f=cmd_wrong)
-    s = sub.add_parser("posts"); s.add_argument("--out", default="secrets-posts.md"); s.set_defaults(f=cmd_posts)
-    s = sub.add_parser("map"); s.add_argument("--out", default="secrets.md"); s.set_defaults(f=cmd_map)
+    s = sub.add_parser("posts"); s.add_argument("--out", default="posts-secrets.md"); s.set_defaults(f=cmd_posts)
+    s = sub.add_parser("map"); s.add_argument("--out", default="carte-secrets.md"); s.set_defaults(f=cmd_map)
     a = ap.parse_args()
     a.f(a)
 

@@ -1,15 +1,22 @@
-"""Find live streams about a topic, ranked by concurrent viewers.
+"""Streams en direct sur un sujet, classés par nombre de spectateurs.
 
-usage: python streams.py --query "gta 6" --limit 20 --out streams.md
-YouTube always. Twitch always (Helix if TWITCH_CLIENT_ID and TWITCH_TOKEN are set, else keyless public GQL). Kick is tried once, skipped silently on failure.
-Viewer counts are exactly what the platform returned at run time.
+usage : python streams.py [--query "gta 6"] [--limit 20] [--lang fr] [--out streams.md]
+
+- YouTube : toujours, sans clé.
+- Twitch : API officielle Helix. Il faut une application Twitch gratuite (https://dev.twitch.tv/console)
+  et TWITCH_CLIENT_ID + TWITCH_CLIENT_SECRET dans les variables d'environnement ou dans un fichier .env
+  du dossier courant. Sans clés, Twitch est ignoré (rien n'est inventé).
+- --lang fr : ne garde que les streams Twitch en français (filtre natif de Helix). YouTube n'a pas ce filtre :
+  ajoute "fr" à --query si besoin.
+Les nombres de spectateurs sont exactement ceux renvoyés par les plateformes au moment de l'exécution.
 """
 import argparse, json, os, sys, time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote_plus
 sys.path.insert(0, str(Path(__file__).parent))
-from common import ytdlp_base, ytdlp_json, run
+from common import ytdlp_json, ytdlp_base, run
 
 try:
     import truststore
@@ -17,19 +24,21 @@ try:
 except Exception:
     pass
 
+TWITCH_GAME = "Grand Theft Auto VI"
+
 
 def fmt_dur(sec):
     if not sec or sec < 0:
         return ""
     sec = int(sec)
-    return f"{sec // 3600}h{sec % 3600 // 60:02d}m"
+    return f"{sec // 3600}h{sec % 3600 // 60:02d}"
 
 
 def youtube(query, limit):
     url = f"https://www.youtube.com/results?search_query={quote_plus(query)}&sp=EgJAAQ%253D%253D"
     r = run(ytdlp_base() + ["--flat-playlist", "-J", "--playlist-end", str(limit), url], capture=True, check=False)
     if r.returncode != 0 or not r.stdout.strip():
-        print(f"youtube search failed: {(r.stderr or '')[-300:]}", file=sys.stderr)
+        print(f"recherche YouTube échouée : {(r.stderr or '')[-300:]}", file=sys.stderr)
         return []
     ids = []
     for e in json.loads(r.stdout).get("entries") or []:
@@ -39,7 +48,7 @@ def youtube(query, limit):
     def one(u):
         try:
             return ytdlp_json(u)
-        except BaseException:  # run() calls sys.exit on failure
+        except BaseException:  # run() appelle sys.exit en cas d'échec
             return None
 
     with ThreadPoolExecutor(max_workers=8) as ex:
@@ -55,93 +64,90 @@ def youtube(query, limit):
     return out
 
 
-def twitch_nokey(game="Grand Theft Auto VI", limit=20):
-    """No account/API key: Twitch public web GQL (see twitch.py)."""
-    import twitch as tw
-    try:
-        rows = tw.top_streams(game, limit)
-    except Exception as e:
-        print(f"twitch (no key) failed: {e}", file=sys.stderr)
-        return []
-    now = time.time()
-    return [{"platform": "Twitch", "channel": r["login"], "title": r["title"], "url": r["url"], "viewers": r["viewers"],
-             "live_for": fmt_dur(now - tw.started_ts(r["created_at"])) if tw.started_ts(r["created_at"]) else ""} for r in rows]
+def read_env(path=".env"):
+    """Variables d'environnement d'abord, puis un fichier .env simple (CLE=valeur) dans le dossier courant."""
+    vals = {}
+    p = Path(path)
+    if p.exists():
+        for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            vals[k.strip()] = v.strip().strip('"').strip("'")
+    get = lambda k: os.environ.get(k) or vals.get(k)
+    return get("TWITCH_CLIENT_ID"), get("TWITCH_CLIENT_SECRET"), get("TWITCH_TOKEN")
 
 
-def twitch(query):
-    cid, tok = os.environ.get("TWITCH_CLIENT_ID"), os.environ.get("TWITCH_TOKEN")
-    if not (cid and tok):
-        return twitch_nokey()
+def twitch(limit, lang=None):
+    """None = Twitch ignoré (pas de clés). Liste (éventuellement vide) sinon."""
+    cid, secret, tok = read_env()
+    if not cid or not (secret or tok):
+        print("Twitch ignoré : ajoute TWITCH_CLIENT_ID et TWITCH_CLIENT_SECRET dans le fichier .env de la page "
+              "(application gratuite sur https://dev.twitch.tv/console).", file=sys.stderr)
+        return None
     import requests
-    h = {"Client-Id": cid, "Authorization": f"Bearer {tok}"}
     try:
-        g = requests.get("https://api.twitch.tv/helix/games", params={"name": "Grand Theft Auto VI"}, headers=h, timeout=15).json()
-        if not g.get("data"):
+        if not tok:
+            r = requests.post("https://id.twitch.tv/oauth2/token", timeout=15,
+                              data={"client_id": cid, "client_secret": secret, "grant_type": "client_credentials"})
+            r.raise_for_status()
+            tok = r.json()["access_token"]  # gardé en mémoire uniquement, jamais écrit sur le disque
+        h = {"Client-Id": cid, "Authorization": f"Bearer {tok}"}
+        g = requests.get("https://api.twitch.tv/helix/games", params={"name": TWITCH_GAME}, headers=h, timeout=15)
+        g.raise_for_status()
+        data = g.json().get("data") or []
+        if not data:
+            print(f"Twitch : catégorie « {TWITCH_GAME} » introuvable.", file=sys.stderr)
             return []
-        gid = g["data"][0]["id"]
-        s = requests.get("https://api.twitch.tv/helix/streams", params={"game_id": gid, "first": 100}, headers=h, timeout=15).json()
+        params = {"game_id": data[0]["id"], "first": 100}
+        if lang:
+            params["language"] = lang
+        s = requests.get("https://api.twitch.tv/helix/streams", params=params, headers=h, timeout=15)
+        s.raise_for_status()
     except Exception as e:
-        print(f"twitch failed: {e}", file=sys.stderr)
+        print(f"Twitch en échec : {e}", file=sys.stderr)
         return []
     now = time.time(); out = []
-    for x in s.get("data", []):
+    for x in s.json().get("data", []):
         try:
-            st = time.mktime(time.strptime(x["started_at"], "%Y-%m-%dT%H:%M:%SZ")) - time.timezone
+            st = datetime.strptime(x["started_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
         except Exception:
             st = None
         out.append({"platform": "Twitch", "channel": x.get("user_name", ""), "title": x.get("title", ""),
                     "url": f"https://twitch.tv/{x.get('user_login', '')}", "viewers": x.get("viewer_count"),
                     "live_for": fmt_dur(now - st) if st else ""})
-    return out
-
-
-def kick(query):
-    """Public API is often blocked; one try, silent on any failure."""
-    try:
-        import requests
-        r = requests.get("https://kick.com/api/v2/channels", params={"query": query}, timeout=8,
-                         headers={"User-Agent": "Mozilla/5.0"})
-        if r.status_code != 200:
-            return []
-        data = r.json()
-        items = data if isinstance(data, list) else data.get("data", [])
-        return [{"platform": "Kick", "channel": c.get("slug", ""), "title": (c.get("livestream") or {}).get("session_title", ""),
-                 "url": f"https://kick.com/{c.get('slug', '')}", "viewers": (c.get("livestream") or {}).get("viewer_count"),
-                 "live_for": ""} for c in items if isinstance(c, dict) and c.get("livestream")]
-    except Exception:
-        return []
+    return sorted(out, key=lambda r: r["viewers"] or -1, reverse=True)[:limit]
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--query", default="gta 6"); ap.add_argument("--limit", type=int, default=20)
+    ap.add_argument("--lang", help="code langue pour Twitch, ex. fr")
     ap.add_argument("--out", default="streams.md")
     a = ap.parse_args()
     sections = [("YouTube", youtube(a.query, a.limit))]
-    t = twitch(a.query)
-    if t:
-        t = sorted(t, key=lambda r: r["viewers"] or -1, reverse=True)[:a.limit]
+    t = twitch(a.limit, a.lang)
     if t is not None:
-        sections.append(("Twitch", t))
-    k = kick(a.query)
-    if k:
-        sections.append(("Kick", k))
+        sections.append(("Twitch" + (f" ({a.lang})" if a.lang else ""), t))
     stamp = time.strftime("%Y-%m-%d %H:%M")
-    md = [f"# Live streams: {a.query}", f"Checked {stamp}. Viewer counts are as returned at that moment.", ""]
+    md = [f"# Streams en direct : {a.query}", f"Vérifié le {stamp}. Spectateurs tels que renvoyés à cet instant.", ""]
+    if t is None:
+        md += ["_Twitch ignoré : pas de clés dans .env (voir le skill `installation`)._", ""]
     for name, rows in sections:
         rows = sorted(rows, key=lambda r: r["viewers"] or -1, reverse=True)
         md += [f"## {name}", ""]
         if not rows:
-            md += ["No live streams found.", ""]
+            md += ["Aucun stream en direct trouvé.", ""]
             continue
-        md += ["| # | Channel | Title | Viewers | Live for | URL |", "|---|---|---|---|---|---|"]
+        md += ["| # | Chaîne | Titre | Spectateurs | En direct depuis | Lien |", "|---|---|---|---|---|---|"]
         for n, r in enumerate(rows, 1):
             v = "" if r["viewers"] is None else r["viewers"]
             md.append(f"| {n} | {r['channel']} | {r['title'].replace('|', '/')} | {v} | {r['live_for']} | {r['url']} |")
-            print(f"{name:8} {str(v):>7}  {r['channel'][:24]:24} {r['title'][:50]:50} {r['url']}")
+            print(f"{name[:8]:8} {str(v):>7}  {r['channel'][:24]:24} {r['title'][:50]:50} {r['url']}")
         md.append("")
     Path(a.out).write_text("\n".join(md), encoding="utf-8")
-    print(f"wrote {a.out}")
+    print(f"écrit : {a.out}")
 
 
 if __name__ == "__main__":

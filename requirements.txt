@@ -1,7 +1,9 @@
-faster-whisper>=1.1
-numpy>=1.26
-requests>=2.31
+# Installé dans le venv de la page (skill installation), jamais dans le Python global.
+faster-whisper>=1.1,<2
+numpy>=1.26,<3
+requests>=2.31,<3
+# yt-dlp suit les changements de YouTube : mets-le à jour dans le venv seulement si YouTube renvoie des erreurs 403.
 yt-dlp[default]>=2026.10.26
-deep-translator>=1.11
-edge-tts>=6.1
-opencv-python-headless>=4.9
+deep-translator>=1.11,<2
+edge-tts>=6.1,<8
+opencv-python-headless>=4.9,<6

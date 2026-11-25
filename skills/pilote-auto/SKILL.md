@@ -1,0 +1,70 @@
+---
+name: pilote-auto
+description: Pilote automatique de la page. Regarde un gros live GTA 6 anglophone, découpe ses meilleurs moments en clips réaction sous-titrés en français, les vérifie, les publie via Upload-Post (YouTube Shorts, Instagram Reels, TikTok) puis passe au live suivant. À utiliser quand une tâche planifiée lance « pilote-auto », ou quand l'utilisateur dit « lance le pilote automatique », « fais un passage du pilote ».
+---
+
+# Pilote automatique
+
+Ce skill tourne sans personne devant l'écran. L'utilisateur l'a activé lui-même dans `pilote.json` : c'est la seule exception à la règle « Claude prépare, l'utilisateur publie », et elle ne couvre que ce qui est écrit ici.
+
+`$PY` = le Python du venv de la page : `.venv\Scripts\python.exe` sous Windows, `.venv/bin/python` sous macOS/Linux. `S` = `${CLAUDE_PLUGIN_ROOT}/scripts`. Lance tout depuis le dossier de la page.
+
+## 0. Avant tout
+
+1. Va dans le dossier de la page (celui qui contient `pilote.json`). S'il manque, arrête-toi : rien d'autre à faire.
+2. Un fichier `PAUSE` dans le dossier ? Arrête-toi sans rien faire.
+3. Lis `pilote.json` :
+   - `mode` : `test` (rien n'est publié) ou `auto` (publication réelle). Seul l'utilisateur change ce mode. Ne le modifie jamais.
+   - `plateformes`, `max_par_jour`, `minutes_de_live`, `clips_par_passage`, `streamers_prioritaires`, `exclus`, `fuseau`.
+4. `$PY "S/publish.py" today` : si le plafond est atteint sur toutes les plateformes, note-le dans `journal.md` et arrête-toi.
+5. Un clip attend dans `a-publier/` (un `.mp4` et son `.json` avec `titre` et `description`) ? Publie-le d'abord (étape 4), puis retire-le du dossier.
+6. Le lundi seulement : `$PY "S/publish.py" auth instagram` renouvelle le jeton Instagram (il expire au bout de 60 jours).
+
+## 1. Choisir le live
+
+1. `$PY "S/streams.py" --query "gta 6" --out streams.md` (ajoute `--lang en` si les clés Twitch sont dans `.env`).
+2. Garde les lives **en anglais** qui montrent vraiment GTA 6. Priorité aux `streamers_prioritaires`, puis au plus grand nombre de spectateurs.
+3. Écarte : les chaînes de `exclus` et de `retraits.md`, les fuites, « play early », le piratage, l'argent ou les bots de GTA Online.
+4. Ne reprends pas la chaîne du passage précédent (dernière ligne de `registre.csv`), sauf si c'est la seule.
+5. Aucun live valable : note-le dans `journal.md` et arrête-toi.
+
+## 2. Regarder
+
+`$PY "S/live.py" <url> --minutes <minutes_de_live> --baseline 120`
+
+La commande dure le temps du live demandé. Elle écrit `jobs/<id>/live/spike_<n>.mp4` à chaque pic du chat, et `spikes.md`. Pas de pic : note-le et arrête-toi.
+
+## 3. Choisir et découper (au plus `clips_par_passage` clips)
+
+Pour chaque pic, du plus fort au plus faible (colonne msgs de `spikes.md`) :
+
+1. `$PY "S/moments.py" jobs/<id>/live/spike_<n>.mp4 --top 1 --min 12 --max 35` crée un nouveau job pour ce pic.
+2. Lis son `candidates.md`. Écarte : spoilers de l'histoire pendant la semaine de sortie, nudité, propos haineux, moment sans le jeu à l'écran, tout ce qui ressemble à une fuite.
+3. Déjà dans `registre.csv` (même chaîne, même moment) ? Passe au suivant.
+4. Sous-titres français, traduits par toi : `cut.py <job> --pick 1 --export-sentences`, puis écris `edits/clip_1_fr.txt` (une ligne par phrase, même ordre, français oral, rien d'inventé).
+5. Titre de réaction écrit selon `accroches` : il décrit ce qui s'est passé, sans citation inventée, sans spoiler.
+6. `cut.py <job> --pick 1 --layout react --cam auto --title "<titre>" --captions word --translations <job>/edits/clip_1_fr.txt`. Refusé faute de webcam en cadre ? Recommence avec `--layout blur`.
+7. `check.py <clip> --caption "<légende>"` doit finir par `RÉSULTAT : OK`. Sinon, le clip est abandonné.
+
+## 4. Publier
+
+Légende : l'accroche en français, « Sous-titré en français », `🎥 @<chaîne>`, puis 3 à 5 hashtags (`#GTA6 #GTAVI` + le streamer). Description : la même, plus le lien du live d'origine.
+
+- `mode` = `test` : `$PY "S/publish.py" post <clip> --title "<légende>" --description "<description>" --platforms <plateformes séparées par des virgules> --max-per-day <max_par_jour> --youtube-privacy <youtube_visibilite> --test`
+- `mode` = `auto` : la même commande sans `--test`. Elle passe par les API officielles (YouTube Data API, Instagram Graph API, TikTok Content Posting API). Une plateforme pas encore connectée reste automatiquement en test.
+- Un seul clip publié par passage. Le second clip retenu va dans `a-publier/` (copie le `.mp4` et écris à côté un `.json` avec `titre` et `description`) : il partira au début du passage suivant.
+
+`publish.py` refuse sans crédit et au-delà du plafond : ne le contourne jamais. Un statut « en ligne privée » veut dire que l'appli YouTube ou TikTok n'est pas encore auditée : note-le dans `journal.md`, c'est normal.
+Ajoute une ligne à `registre.csv` (crée-le avec l'en-tête `date,chaine,url,moment,fichier,mode,statut` s'il n'existe pas).
+
+## 5. Fin de passage
+
+Ajoute à `journal.md` : l'heure, le live regardé, le nombre de pics, et une ligne par clip (titre, fichier, publié ou test, erreurs). Ta réponse finale tient en 3 lignes.
+
+## Interdits, même en mode auto
+
+- Reddit, commentaires, réponses, messages privés, likes, abonnements, réglages ou profils de comptes : jamais.
+- Jamais plus de `max_par_jour` par plateforme, jamais sans crédit, jamais un clip qui a échoué à `verif-regles`.
+- Jamais le même clip sur plusieurs comptes d'une même plateforme.
+- Ne modifie jamais `mode`, ne crée ni ne lis aucune clé, ne te connecte à aucun compte, n'accepte aucune condition.
+- Une chaîne qui a demandé un retrait (`retraits.md`) n'est plus jamais clippée.

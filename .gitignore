@@ -6,3 +6,7 @@ test/
 *.wav
 *.ts
 !docs/*.mp4
+.env
+jetons/
+client_secret*.json
+publications.csv

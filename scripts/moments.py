@@ -12,8 +12,9 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent))
 from common import ffprobe, is_url, job_dir, load_json, run, save_json, tool, ytdlp_base, ytdlp_json
 
-HYPE = re.compile(r"\b(no way|oh my god|omg|what|wait|bro|let'?s go|holy|insane|crazy|yo+|wtf|dude|look at|nah|run|go go)\b", re.I)
-CHAT_HYPE = re.compile(r"(LMAO|LOL|KEKW|OMEGALUL|W+\b|CLIP|💀|😂|🔥|NO WAY|HOLY)", re.I)
+HYPE = re.compile(r"\b(no way|oh my god|omg|what|wait|bro|let'?s go|holy|insane|crazy|yo+|wtf|dude|look at|nah|run|go go"
+                  r"|quoi|attends|wesh|fr[eé]rot?|putain|incroyable|dingue|ouf|allez|regarde|cours|abus[eé]|jamais|chaud|gros|sah|zinzin|mdr|ptdr)\b", re.I)
+CHAT_HYPE = re.compile(r"(LMAO|LOL|KEKW|OMEGALUL|W+\b|CLIP|💀|😂|🔥|NO WAY|HOLY|X?PTDR|MDR|JPP|OUF|WESH|CHOQU\w*)", re.I)
 
 
 def fetch(src, d, max_min):
@@ -68,7 +69,7 @@ def transcribe(wav, d):
     try:
         words = run_on("cuda" if cuda else "cpu")
     except RuntimeError as e:  # GPU present but CUDA libraries missing: fall back to CPU
-        print(f"GPU transcription unavailable ({str(e)[:80]}), using CPU")
+        print(f"transcription GPU indisponible ({str(e)[:80]}), passage au CPU")
         words = run_on("cpu")
     save_json(out, words)
     return words
@@ -157,12 +158,12 @@ def main():
         used[int(s0):int(e0)] = True
         text = " ".join(x["w"] for x in words if s0 <= x["s"] < e0)
         why = []
-        if loud[p] > 1: why.append("loudness spike")
-        if hype[p] > 0: why.append("hype words")
-        if heat[p] > 0.5: why.append(f"most replayed {heat[p]:.2f}")
-        if w_chat and chatz[p] > 1: why.append("chat spike")
+        if loud[p] > 1: why.append("pic de volume")
+        if hype[p] > 0: why.append("mots d'excitation")
+        if heat[p] > 0.5: why.append(f"passage le plus revu {heat[p]:.2f}")
+        if w_chat and chatz[p] > 1: why.append("pic du chat")
         picks.append({"n": len(picks) + 1, "start": round(s0, 2), "end": round(e0, 2), "peak": int(p),
-                      "score": round(float(score[p]), 2), "why": why or ["overall energy"], "text": text[:400]})
+                      "score": round(float(score[p]), 2), "why": why or ["énergie générale"], "text": text[:400]})
     picks.sort(key=lambda x: x["start"])
     for i, x in enumerate(picks, 1):
         x["n"] = i
@@ -170,13 +171,13 @@ def main():
     save_json(d / "candidates.json", {"source": str(vid), "info": meta, "duration": dur, "candidates": picks,
                                       "signals": {"heatmap": bool(w_heat), "chat": bool(w_chat), "words": len(words)}})
     fmt = lambda t: f"{int(t // 60)}:{int(t % 60):02d}"
-    md = [f"# Candidates: {meta.get('title', '')}", f"source: {meta.get('webpage_url', '')}",
-          f"signals: loudness, transcript ({len(words)} words)" + (", most replayed" if w_heat else "") + (", chat" if w_chat else ""), ""]
+    md = [f"# Moments candidats : {meta.get('title', '')}", f"source : {meta.get('webpage_url', '')}",
+          f"signaux : volume, transcription ({len(words)} mots)" + (", passages les plus revus" if w_heat else "") + (", chat" if w_chat else ""), ""]
     for x in picks:
-        md += [f"## {x['n']}. {fmt(x['start'])}-{fmt(x['end'])} ({x['end'] - x['start']:.0f}s) score {x['score']}",
-               f"why: {', '.join(x['why'])}", f"> {x['text']}", ""]
+        md += [f"## {x['n']}. {fmt(x['start'])}-{fmt(x['end'])} ({x['end'] - x['start']:.0f} s) score {x['score']}",
+               f"pourquoi : {', '.join(x['why'])}", f"> {x['text']}", ""]
     (d / "candidates.md").write_text("\n".join(md), encoding="utf-8")
-    print(f"job: {d}\n{len(picks)} candidates -> {d / 'candidates.md'}")
+    print(f"job : {d}\n{len(picks)} moments candidats -> {d / 'candidates.md'}")
 
 
 if __name__ == "__main__":

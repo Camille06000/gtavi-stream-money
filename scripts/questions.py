@@ -1,16 +1,30 @@
-"""Questions into posts: collect fan questions, cluster them, check facts.md, draft HOW TO posts.
+"""Questions en posts : récupère les questions des fans, les regroupe, cherche la réponse dans faits.md
+et rédige des brouillons de posts « COMMENT ... DANS GTA 6 ».
 
-python questions.py --subs GTA6,GTA,GrandTheftAutoV --days 3 [--comments comments.txt] --out questions.md
+python questions.py --subs GTA6,GTA,GrandTheftAutoV --days 3 [--comments commentaires.txt] --out questions.md
+Comprend les questions en français et en anglais. Si Reddit bloque, colle les commentaires de tes posts
+dans un fichier texte (une ligne par commentaire) et passe-le avec --comments.
 """
 import argparse, difflib, json, re, sys, time, urllib.error, urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-UA = "gta6-clip-desk/1.0 (questions-to-posts; read-only public JSON; contact via github Bodila51/gtavi-claudecode)"
-STARTERS = ("how", "where", "what", "can", "is", "does", "why", "when")
+# Console Windows (cp1252) : forcer l'UTF-8 pour les accents, emojis et espaces fines des titres.
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+UA = "gta6-clip-desk-fr/1.0 (questions-en-posts; read-only public JSON; adaptation of github Bodila51/gtavi-claudecode)"
+STARTERS = ("how", "where", "what", "can", "is", "does", "why", "when",
+            "comment", "où", "ou est", "quel", "quelle", "quels", "quelles", "est-ce", "pourquoi", "quand",
+            "combien", "peut-on", "on peut", "faut-il", "c'est quoi", "qui ")
 STOP = set("""a an the to of in on at for and or is are was were be been do does did can could would should will
 i you we they he she it my your our this that these those there here with about as by from if any
-gta gta6 gta5 vi 6 5 game games get got have has had im ive its dont not no yes so just really""".split())
+gta gta6 gta5 vi 6 5 game games get got have has had im ive its dont not no yes so just really
+le la les un une des du de d l et ou est sont a ai as avez ont je tu il elle on nous vous ils elles mon ma mes ton ta
+tes son sa ses ce cet cette ces qui que quoi dans sur pour par avec sans pas ne plus comment jeu jeux faire fait""".split())
 _last = [0.0]
 
 
@@ -59,7 +73,7 @@ def sentences(text):
 
 def tokens(s):
     s = re.sub(r"https?://\S+", " ", s.lower())
-    return {w for w in re.findall(r"[a-z0-9]+", s) if w not in STOP and len(w) > 1}
+    return {w for w in re.findall(r"[^\W_]+", s) if w not in STOP and len(w) > 1}
 
 
 def similar(a, b):
@@ -161,20 +175,21 @@ def match_facts(c, facts):
 def howto_title(q):
     t = q.strip().rstrip("?").strip()
     t = re.sub(r"^(how (do|can|could|would|should) (i|we|you|one)|how to|how)\s+", "", t, flags=re.I)
-    t = re.sub(r"\b(in|on|for)? ?gta ?(6|vi)\b", "", t, flags=re.I).strip(" ,.")
-    return f"HOW TO {t.upper()} IN GTA 6" if t else "HOW TO [DO THE THING] IN GTA 6"
+    t = re.sub(r"^(comment (est-ce qu'on|est-ce que je|est-ce qu'il faut|on|je|faut-il|peut-on)|comment)\s+", "", t, flags=re.I)
+    t = re.sub(r"\b(in|on|for|dans|sur|pour)? ?gta ?(6|vi)\b", "", t, flags=re.I).strip(" ,.")
+    return f"COMMENT {t.upper()} DANS GTA 6" if t else "COMMENT [FAIRE LE TRUC] DANS GTA 6"
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--subs", default="GTA6,GTA,GrandTheftAutoV")
     ap.add_argument("--days", type=float, default=3)
-    ap.add_argument("--comments", help="text file of pasted comments from our own posts, one per line")
-    ap.add_argument("--facts", default="facts.md")
-    ap.add_argument("--ideas", default="idea-bank.md")
+    ap.add_argument("--comments", help="fichier texte des commentaires de tes posts, un par ligne")
+    ap.add_argument("--facts", default="faits.md")
+    ap.add_argument("--ideas", default="idees.md")
     ap.add_argument("--out", default="questions.md")
     ap.add_argument("--min-count", type=int, default=1)
-    ap.add_argument("--top", type=int, default=25, help="max clusters to report")
+    ap.add_argument("--top", type=int, default=25, help="nombre maximum de groupes de questions")
     a = ap.parse_args()
 
     items = collect_reddit([s.strip() for s in a.subs.split(",") if s.strip()], a.days)
@@ -182,56 +197,56 @@ def main():
         if Path(a.comments).exists():
             items += collect_file(a.comments)
         else:
-            print(f"comments file not found: {a.comments}", file=sys.stderr)
+            print(f"fichier de commentaires introuvable : {a.comments}", file=sys.stderr)
     if not items:
-        sys.exit("No questions found (Reddit empty, blocked or rate limited). Try again later or pass --comments.")
+        sys.exit("Aucune question trouvée (Reddit vide, bloqué ou limité). Réessaie plus tard ou utilise --comments.")
 
     clusters = [c for c in cluster(items) if c["count"] >= a.min_count][: a.top]
     facts = load_facts(a.facts)
     if not facts:
-        print(f"warning: {a.facts} missing or empty, every cluster will be UNANSWERED", file=sys.stderr)
+        print(f"attention : {a.facts} absent ou vide, toutes les questions seront SANS RÉPONSE", file=sys.stderr)
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    out = [f"# Questions report {today}", "",
-           f"{len(items)} questions from {a.subs} (last {a.days:g} days){' + ' + a.comments if a.comments else ''}, "
-           f"{len(clusters)} clusters. Ranked by count, then upvotes.", ""]
+    out = [f"# Rapport des questions du {today}", "",
+           f"{len(items)} questions depuis {a.subs} ({a.days:g} derniers jours){' + ' + a.comments if a.comments else ''}, "
+           f"{len(clusters)} groupes. Classés par nombre de demandes, puis par votes.", ""]
     answered, unanswered = [], []
     for n, c in enumerate(clusters, 1):
         hits = match_facts(c, facts)
-        out += [f"## {n}. {c['question']}", f"- count: {c['count']}, upvotes: {c['votes']}"]
-        out += [f"- example: {l}" for l in c["links"]] or ["- example: (own comments)"]
+        out += [f"## {n}. {c['question']}", f"- demandes : {c['count']}, votes : {c['votes']}"]
+        out += [f"- exemple : {l}" for l in c["links"]] or ["- exemple : (tes commentaires)"]
         if hits:
-            out.append(f"- answer found in facts.md: {hits[0]}")
+            out.append(f"- réponse trouvée dans {a.facts} : {hits[0]}")
             answered.append((c, hits))
         else:
-            out.append("- UNANSWERED: needs an official source")
+            out.append("- SANS RÉPONSE : il faut une source officielle")
             unanswered.append(c)
         out.append("")
 
-    out += ["# HOW TO drafts (answered clusters)", "",
-            "Steps are copied from facts.md lines only. Edit wording, keep every fact and its source. "
-            "Run rule-check before posting. Drop a step if it is not a real step.", ""]
+    out += ["# Brouillons « COMMENT ... » (questions avec réponse)", "",
+            f"Les étapes sont copiées uniquement depuis les lignes de {a.facts}. Reformule, garde chaque fait et sa source. "
+            "Lance verif-regles avant de publier. Supprime une étape si ce n'en est pas une.", ""]
     if not answered:
-        out += ["None yet: no question matched facts.md.", ""]
+        out += [f"Rien pour l'instant : aucune question ne correspond à {a.facts}.", ""]
     for c, hits in answered:
         out += [f"### {c['question']}", "```", howto_title(c["question"]), ""]
         for i, h in enumerate(hits[:5], 1):
             out.append(f"{i}. {h}")
-        out += ["", "Source: see the link on each facts.md line", "```", ""]
+        out += ["", f"Source : voir le lien sur chaque ligne de {a.facts}", "```", ""]
 
     Path(a.out).write_text("\n".join(out), encoding="utf-8")
 
     if unanswered:
         ib = Path(a.ideas)
-        old = ib.read_text(encoding="utf-8") if ib.exists() else "# Idea bank\n"
-        add = [f"\n## Research tasks from questions ({today})"]
+        old = ib.read_text(encoding="utf-8") if ib.exists() else "# Banque d'idées\n"
+        add = [f"\n## Recherches à faire depuis les questions ({today})"]
         for c in unanswered:
-            add.append(f"- [ ] Find an official source (Rockstar, Take-Two, PlayStation, Xbox) for: \"{c['question']}\" "
-                       f"({c['count']} asks). Add to facts.md with link, then make a HOW TO post.")
+            add.append(f"- [ ] Trouver une source officielle (Rockstar, Take-Two, PlayStation, Xbox) pour : \"{c['question']}\" "
+                       f"({c['count']} demandes). L'ajouter à {a.facts} avec le lien, puis faire un post « COMMENT ... ».")
         ib.write_text(old.rstrip("\n") + "\n" + "\n".join(add) + "\n", encoding="utf-8")
 
-    print(f"{len(clusters)} clusters: {len(answered)} answered, {len(unanswered)} unanswered -> {a.out}"
-          + (f", research tasks -> {a.ideas}" if unanswered else ""))
+    print(f"{len(clusters)} groupes : {len(answered)} avec réponse, {len(unanswered)} sans réponse -> {a.out}"
+          + (f", recherches à faire -> {a.ideas}" if unanswered else ""))
 
 
 if __name__ == "__main__":

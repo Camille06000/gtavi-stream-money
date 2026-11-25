@@ -1,8 +1,10 @@
-"""Pre-post check of a finished clip.
+"""Vérification d'un clip terminé avant publication.
 
-usage: python check.py <clip.mp4> [--campaign campaigns.md] [--caption "text"]
-Reads clip_<n>.json (written by cut.py) next to the clip if present. Exit code 1 on any FAIL.
-campaigns.md lines understood: min_seconds: 15 / max_seconds: 60 / required_hashtags: #a #b / required_mention: @x
+usage : python check.py <clip.mp4> [--campaign campagnes.md] [--caption "texte de la légende"]
+Lit clip_<n>.json (écrit par cut.py) à côté du clip s'il existe. Code de sortie 1 si une vérification échoue.
+Lignes comprises dans campagnes.md (français ou anglais) :
+  duree_min: 15 / duree_max: 60 / hashtags_obligatoires: #a #b / mention_obligatoire: @x
+  (ou min_seconds / max_seconds / required_hashtags / required_mention)
 """
 import argparse, re, sys
 from pathlib import Path
@@ -10,7 +12,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 from common import ffprobe, load_json
 
 BANNED = ["leak", "leaked build", "play early", "early access download", "free download", "crack", "piracy",
-          "mod menu", "money glitch", "afk bot"]
+          "mod menu", "money glitch", "afk bot",
+          # français
+          "fuite", "version fuitée", "jouer en avance", "accès anticipé gratuit", "téléchargement gratuit",
+          "telechargement gratuit", "piratage", "version craquée", "glitch d'argent", "argent infini", "bot afk"]
 
 
 def parse_campaign(path):
@@ -18,13 +23,13 @@ def parse_campaign(path):
     if not path or not Path(path).exists():
         return rules, False
     txt = Path(path).read_text(encoding="utf-8", errors="replace")
-    m = re.search(r"min_seconds:\s*(\d+(?:\.\d+)?)", txt, re.I)
-    if m: rules["min"] = float(m.group(1))
-    m = re.search(r"max_seconds:\s*(\d+(?:\.\d+)?)", txt, re.I)
-    if m: rules["max"] = float(m.group(1))
-    m = re.search(r"required_hashtags:\s*(.+)", txt, re.I)
+    m = re.search(r"(?:min_seconds|dur[ée]e_min):\s*(\d+(?:[.,]\d+)?)", txt, re.I)
+    if m: rules["min"] = float(m.group(1).replace(",", "."))
+    m = re.search(r"(?:max_seconds|dur[ée]e_max):\s*(\d+(?:[.,]\d+)?)", txt, re.I)
+    if m: rules["max"] = float(m.group(1).replace(",", "."))
+    m = re.search(r"(?:required_hashtags|hashtags_obligatoires):\s*(.+)", txt, re.I)
     if m: rules["tags"] = re.findall(r"#\w+", m.group(1))
-    m = re.search(r"required_mention:\s*(@\w+)", txt, re.I)
+    m = re.search(r"(?:required_mention|mention_obligatoire):\s*(@\w+)", txt, re.I)
     if m: rules["mention"] = m.group(1)
     return rules, True
 
@@ -52,7 +57,7 @@ def main():
         res.append((name, ok, detail))
 
     if not clip.exists():
-        sys.exit(f"FAIL file not found: {clip}")
+        sys.exit(f"ÉCHEC fichier introuvable : {clip}")
     side = clip.with_suffix(".json")
     meta = load_json(side) if side.exists() else {}
     rules, have_campaign = parse_campaign(a.campaign)
@@ -62,29 +67,29 @@ def main():
     au = next((s for s in streams if s.get("codec_type") == "audio"), None)
     dur = float(p.get("format", {}).get("duration", 0) or 0)
 
-    add("resolution 1080x1920", bool(v) and (v.get("width"), v.get("height")) == (1080, 1920),
-        f"{v.get('width')}x{v.get('height')}" if v else "no video")
+    add("résolution 1080x1920", bool(v) and (v.get("width"), v.get("height")) == (1080, 1920),
+        f"{v.get('width')}x{v.get('height')}" if v else "pas de vidéo")
     f = fps_of(v.get("r_frame_rate", "0/1")) if v else 0
-    add("fps about 30", 29 <= f <= 31, f"{f:.2f}")
-    add("has audio", au is not None)
-    add(f"duration {rules['min']:g}-{rules['max']:g}s" + ("" if have_campaign else " (default)"),
-        rules["min"] <= dur <= rules["max"], f"{dur:.1f}s")
+    add("environ 30 images/s", 29 <= f <= 31, f"{f:.2f}")
+    add("piste audio présente", au is not None)
+    add(f"durée {rules['min']:g}-{rules['max']:g} s" + ("" if have_campaign else " (par défaut)"),
+        rules["min"] <= dur <= rules["max"], f"{dur:.1f} s")
     hook = meta.get("hook", "")
     hits = banned_in(hook + " " + a.caption)
-    add("no banned terms in caption/hook", not hits, ", ".join(hits))
+    add("aucun terme interdit dans l'accroche ou la légende", not hits, ", ".join(hits))
     if rules["tags"]:
         miss = [t for t in rules["tags"] if t.lower() not in a.caption.lower()]
-        add("required hashtags", not miss, ("missing " + " ".join(miss)) if miss else " ".join(rules["tags"]))
+        add("hashtags obligatoires", not miss, ("manquants : " + " ".join(miss)) if miss else " ".join(rules["tags"]))
     if rules["mention"]:
         ok = rules["mention"].lower() in a.caption.lower()
-        add("required mention", ok, rules["mention"])
+        add("mention obligatoire", ok, rules["mention"])
     if not have_campaign:
-        add("campaign rules file", True, "none given, defaults used (NOT a rules check)")
+        add("fichier de règles de campagne", True, "aucun fourni, valeurs par défaut (ce n'est PAS une vérification des règles)")
 
     for n, ok, d in res:
-        print(f"{'PASS' if ok else 'FAIL'}  {n}" + (f"  [{d}]" if d else ""))
+        print(f"{'OK   ' if ok else 'ÉCHEC'}  {n}" + (f"  [{d}]" if d else ""))
     bad = [r for r in res if not r[1]]
-    print("RESULT: " + ("FAIL" if bad else "PASS"))
+    print("RÉSULTAT : " + ("ÉCHEC" if bad else "OK"))
     sys.exit(1 if bad else 0)
 
 

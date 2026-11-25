@@ -1,6 +1,7 @@
-"""Trend radar: recent GTA 6 videos on YouTube ranked by views per hour.
+"""Radar des tendances : vidéos GTA 6 récentes sur YouTube, classées par vues par heure.
 
-usage: python trends.py [--query "gta 6"] [--hours 24] [--limit 30] [--out trends.md]
+usage : python trends.py [--query "gta 6"] [--hours 24] [--limit 30] [--out tendances.md]
+Astuce : --query "gta 6 fr" ou le nom d'un créateur pour cibler le public francophone.
 """
 import argparse, sys, time
 from concurrent.futures import ThreadPoolExecutor
@@ -9,6 +10,11 @@ sys.path.insert(0, str(Path(__file__).parent))
 from common import ytdlp_json
 
 UPLOAD_DATE_SORT = "&sp=CAI%253D"  # YouTube search sorted by upload date
+
+
+def nb(x):
+    """1234567 -> '1 234 567' (espace fine insécable, à la française)."""
+    return f"{x:,.0f}".replace(",", "\u202f")
 
 
 def detail(url):
@@ -21,7 +27,7 @@ def detail(url):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--query", default="gta 6"); ap.add_argument("--hours", type=float, default=24)
-    ap.add_argument("--limit", type=int, default=30); ap.add_argument("--out", default="trends.md")
+    ap.add_argument("--limit", type=int, default=30); ap.add_argument("--out", default="tendances.md")
     a = ap.parse_args()
     q = a.query.replace(" ", "+")
     flat = ytdlp_json(f"https://www.youtube.com/results?search_query={q}{UPLOAD_DATE_SORT}",
@@ -41,13 +47,13 @@ def main():
         rows.append((v / age, v, age, i.get("duration") or 0, i.get("channel") or "", i.get("title") or "", i.get("webpage_url"),
                      bool(i.get("heatmap"))))
     rows.sort(reverse=True)
-    md = [f"# Trend radar: \"{a.query}\", last {a.hours:.0f} h ({time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())})", "",
-          "| # | views/h | views | age h | min | channel | title | most replayed |", "|---|---|---|---|---|---|---|---|"]
+    md = [f"# Tendances : \"{a.query}\", dernières {a.hours:.0f} h ({time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())})", "",
+          "| # | vues/h | vues | âge (h) | min | chaîne | titre | passages les plus revus |", "|---|---|---|---|---|---|---|---|"]
     for k, r in enumerate(rows, 1):
-        md.append(f"| {k} | {r[0]:,.0f} | {r[1]:,} | {r[2]:.1f} | {r[3] / 60:.0f} | {r[4]} | [{r[5][:70]}]({r[6]}) | {'yes' if r[7] else ''} |")
+        md.append(f"| {k} | {nb(r[0])} | {nb(r[1])} | {r[2]:.1f} | {r[3] / 60:.0f} | {r[4]} | [{r[5][:70]}]({r[6]}) | {'oui' if r[7] else ''} |")
     Path(a.out).write_text("\n".join(md) + "\n", encoding="utf-8")
     print("\n".join(md[:14]))
-    print(f"... {len(rows)} videos -> {a.out}")
+    print(f"... {len(rows)} vidéos -> {a.out}")
 
 
 if __name__ == "__main__":

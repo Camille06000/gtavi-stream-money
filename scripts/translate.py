@@ -4,7 +4,8 @@ Translates the spoken lines (word-by-word captions) and the hook of an already c
 jobs/<id>/edits/clip_<n>_<lang>.mp4 with the same layout as cut.py, plus clip_<n>_captions.md with
 per-platform captions in each language.
 
-usage: python translate.py jobs/<id> --pick <n> --langs es,pt,de,ru [--voice] [--layout ...] [--hook "..."]
+usage : python translate.py jobs/<id> --pick <n> [--langs fr] [--voice] [--layout ...] [--hook "..."]
+Par défaut : version française (cas typique : clip d'un stream anglophone). Autres langues : --langs es,pt,de,it
 
 --voice adds a stock text-to-speech voice (edge-tts, Microsoft neural stock voices) that speaks the
 translated hook only, over the first 2.5 s, with the original audio ducked under it. It never clones
@@ -21,26 +22,39 @@ VOICES = {"es": "es-ES-AlvaroNeural", "pt": "pt-BR-AntonioNeural", "de": "de-DE-
           "pl": "pl-PL-MarekNeural", "tr": "tr-TR-AhmetNeural", "ja": "ja-JP-KeitaNeural",
           "ko": "ko-KR-InJoonNeural", "ar": "ar-SA-HamedNeural", "hi": "hi-IN-MadhurNeural"}
 HOOK_SECONDS = 2.5
-HASHTAGS = ["#GTA6", "#GTAVI", "#gaming", "#rockstargames", "#gta"]
+HASHTAGS = ["#GTA6", "#GTAVI", "#gaming", "#jeuxvideo", "#gta"]
 
 
 def translator(lang):
     try:
         from deep_translator import GoogleTranslator
     except ImportError:
-        sys.exit("deep-translator missing. Run: pip install -r requirements.txt")
+        sys.exit("deep-translator manquant. Installe les dépendances dans le venv de la page (skill installation).")
     return GoogleTranslator(source="auto", target=lang)
 
 
+_last_call = [0.0]
+
+
 def tr(t, text):
+    """Traduit une phrase. Au plus 4 requêtes par seconde (Google en accepte 5), 3 nouvelles tentatives si limité."""
+    import time
     text = (text or "").strip()
     if not text:
         return ""
-    try:
-        return (t.translate(text) or text).strip()
-    except Exception as e:  # network / rate limit: keep original rather than crash the whole batch
-        print(f"warning: translate failed ({e}); keeping original text", file=sys.stderr)
-        return text
+    for attempt in range(4):
+        wait = 0.25 - (time.time() - _last_call[0])
+        if wait > 0:
+            time.sleep(wait)
+        _last_call[0] = time.time()
+        try:
+            return (t.translate(text) or text).strip()
+        except Exception as e:  # réseau / limite : on réessaie, puis on garde l'original plutôt que tout planter
+            if attempt < 3 and "too many requests" in str(e).lower():
+                time.sleep(2 * (attempt + 1))
+                continue
+            print(f"attention : traduction échouée ({e}) ; texte original conservé", file=sys.stderr)
+            return text
 
 
 def sentences(words):
@@ -57,11 +71,39 @@ def sentences(words):
     return out
 
 
+def translate_batch(t, texts):
+    """Une seule requête pour toutes les phrases du clip (une par ligne) : évite la limite de Google.
+    Si le découpage ne retombe pas juste, repli phrase par phrase (espacé)."""
+    texts = [x.replace("\n", " ").strip() for x in texts]
+    out, chunk = [], []
+
+    def flush():
+        if not chunk:
+            return
+        joined = tr(t, "\n".join(chunk))
+        parts = [x.strip() for x in joined.split("\n")]
+        out.extend(parts if len(parts) == len(chunk) else [tr(t, x) for x in chunk])
+        chunk.clear()
+
+    for x in texts:
+        if sum(len(c) + 1 for c in chunk) + len(x) > 4500:  # limite de 5000 caractères par requête
+            flush()
+        chunk.append(x)
+    flush()
+    return out
+
+
 def translate_words(t, words):
     """Translate each sentence, then spread the translated words evenly over the sentence's timing."""
+    sents = sentences(words)
+    return spread(sents, translate_batch(t, [" ".join(w["w"] for w in sent) for sent in sents]))
+
+
+def spread(sents, texts):
+    """Répartit chaque phrase traduite sur la durée de la phrase d'origine (mot par mot, à intervalles égaux)."""
     res = []
-    for sent in sentences(words):
-        new = tr(t, " ".join(w["w"] for w in sent)).split()
+    for sent, txt in zip(sents, texts):
+        new = txt.split()
         if not new:
             continue
         a, b = sent[0]["s"], sent[-1]["e"]
@@ -74,10 +116,10 @@ def make_voice(lang, text, dest):
     try:
         import edge_tts
     except ImportError:
-        sys.exit("edge-tts missing. Run: pip install -r requirements.txt")
+        sys.exit("edge-tts manquant. Installe les dépendances dans le venv de la page (skill installation).")
     voice = VOICES.get(lang)
     if not voice:
-        print(f"no stock voice configured for '{lang}', skipping --voice", file=sys.stderr)
+        print(f"aucune voix configurée pour '{lang}', --voice ignoré", file=sys.stderr)
         return None
     asyncio.run(edge_tts.Communicate(text, voice).save(str(dest)))
     return dest
@@ -108,14 +150,14 @@ def platform_block(lang, hook, credit, url):
     x = "\n".join(p for p in [line, cred] if p) + src
     ig = "\n".join(p for p in [line, cred, " ".join(HASHTAGS[:4])] if p)
     tk = "\n".join(p for p in [line, cred, " ".join(HASHTAGS[:3])] if p)
-    return (f"## {lang}\n\n**X** (no hashtags)\n\n{x}\n\n**Instagram** (4 hashtags)\n\n{ig}\n\n"
+    return (f"## {lang}\n\n**X** (sans hashtags)\n\n{x}\n\n**Instagram** (4 hashtags)\n\n{ig}\n\n"
             f"**TikTok / YouTube Shorts**\n\n{tk}\n")
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("job"); ap.add_argument("--pick", type=int, default=1)
-    ap.add_argument("--langs", default="es,pt,de,ru")
+    ap.add_argument("--langs", default="fr")
     ap.add_argument("--voice", action="store_true")
     ap.add_argument("--layout", choices=["fill", "blur", "facecam"])
     ap.add_argument("--cam"); ap.add_argument("--hook")
@@ -123,19 +165,22 @@ def main():
     d = Path(a.job); out = d / "edits"
     side = out / f"clip_{a.pick}.json"
     if not side.exists():
-        sys.exit(f"{side} not found. Cut the clip first with cut.py --pick {a.pick}.")
+        sys.exit(f"{side} introuvable. Découpe d'abord le clip avec cut.py --pick {a.pick}.")
     meta = load_json(side)
     cands = load_json(d / "candidates.json")
     s0, e0 = meta["start"], meta["end"]
     layout = a.layout or meta.get("layout", "blur")
+    if layout == "react":  # la mise en page réaction (titre + visage) n'est pas gérée ici
+        print("clip en mise en page réaction : version traduite rendue en mise en page floutée (--layout fill pour changer)")
+        layout = "blur"
     cam = a.cam or "0.70:0.68:0.30:0.32"
     hook = a.hook if a.hook is not None else meta.get("hook", "")
-    credit = ""
+    credit = f"🎥 {meta['source_channel']}" if meta.get("source_channel") else ""
     words = [w for w in load_json(d / "transcript.json") if s0 <= w["s"] < e0 and w["w"]]
     langs = [x.strip() for x in a.langs.split(",") if x.strip()]
-    caps = ["# Captions, one clip in several languages\n",
-            f"Source: {meta.get('source_title') or ''} ({meta.get('source_channel') or ''})\n",
-            "Translations are machine translated. Read each one before posting.\n"]
+    caps = ["# Légendes : un clip, plusieurs langues\n",
+            f"Source : {meta.get('source_title') or ''} ({meta.get('source_channel') or ''})\n",
+            "Traductions automatiques. Relis chacune avant de publier. Ajoute le crédit du créateur.\n"]
     for lang in langs:
         t = translator(lang)
         h = tr(t, hook) if hook else ""

@@ -1,93 +1,126 @@
 <div align="center">
 
-<img src="docs/logo.png" width="300" alt="gtavi-claudecode logo">
+<img src="docs/banniere.png" alt="Clip Desk, édition française : le bureau de clips GTA 6 pour Claude Code" width="100%">
 
-<h1 align="center">gtavi-claudecode</h1>
+<p>
+<img src="https://img.shields.io/badge/Claude_Code-plugin-FF3D8B?style=flat-square" alt="Plugin Claude Code">
+<img src="https://img.shields.io/badge/skills-17-FF9A3C?style=flat-square" alt="17 skills">
+<img src="https://img.shields.io/badge/clips-1080×1920-5B2A86?style=flat-square" alt="Clips 1080x1920">
+<img src="https://img.shields.io/badge/sous--titres-français-3EE6D2?style=flat-square" alt="Sous-titres en français">
+<img src="https://img.shields.io/badge/licence-MIT-140A24?style=flat-square" alt="Licence MIT">
+</p>
 
-<p align="center"><b>Rockstar made the game.<br>Claude Code makes you the money.</b></p>
+**Les plus gros streamers font n'importe quoi sur GTA 6. Claude trouve le moment, tu postes la version française.**
 
-<p align="center">GTA 6 is about to break the internet. Claude Code watches the biggest streams, catches the second chat explodes and hands you a ready-to-post vertical clip. Campaigns pay per 1,000 views. You just hit post.</p>
-
-<p align="center"><img src="https://img.shields.io/badge/Claude_Code-plugin-e8457f" alt="Claude Code: plugin"> <img src="https://img.shields.io/badge/skills-16-e8457f" alt="skills: 16"> <img src="https://img.shields.io/badge/clips-1080x1920-e8457f" alt="clips: 1080x1920"> <img src="https://img.shields.io/badge/languages-5-e8457f" alt="languages: 5"></p>
-<p align="center"><img src="https://img.shields.io/badge/GTA_6-Nov_19-e8457f" alt="GTA 6: Nov 19"> <img src="https://img.shields.io/badge/license-MIT-e8457f" alt="license: MIT"></p>
-<p align="center"><sub>Unofficial fan project. Not affiliated with Rockstar Games, Take-Two or Anthropic.</sub></p>
-<p align="center"><a href="#first-run-paste-this-into-claude-code">Quick start</a> · <a href="#two-ways-to-make-money">Make money</a> · <a href="#whats-inside">Skills</a> · <a href="#the-rules-that-make-clips-win">Clip rules</a> · <a href="#run-the-scripts-yourself">Scripts</a></p>
+<sub>Projet de fan non officiel. Aucun lien avec Rockstar Games, Take-Two ou Anthropic.</sub>
 
 </div>
 
-```
-/plugin marketplace add Bodila51/gtavi-claudecode
-/plugin install gtavi-claudecode@gtavi-claudecode
-```
+<p align="center"><a href="docs/demo.mp4"><img src="docs/apercu.gif" alt="Démo : du live de Speed au clip sous-titré en français" width="720"></a><br><sub>Cliquer pour voir la démo complète</sub></p>
 
-Two lines in Claude Code. In 10 minutes you have: the tools installed, your page folder, today's trending GTA 6 videos, the best moments picked and your first vertical clips ready to post.
+## Installation
 
-## First run: paste this into Claude Code
+Dans Claude Code :
 
 ```
-Use gtavi-claudecode. Set up my GTA 6 clip page, ask me your 4 questions in one message,
-then do everything after one "yes": find live clipping campaigns, show today's trending
-GTA 6 videos and live streams, find the best moments in the top one, cut my first 3 clips
-with hooks, check them against the campaign rules, and tell me what to post where.
+/plugin marketplace add Camille06000/gtavi-stream-money
+/plugin install gtavi-claudecode-fr@gtavi-claudecode-fr
 ```
 
-## Two ways to make money
+Il te faut Python 3.10 ou plus récent et ffmpeg. Le skill `installation` s'occupe du reste : il crée un environnement Python isolé (`.venv`) dans le dossier de ta page, sans jamais toucher à ton Python global.
 
-**1. Paid clipping campaigns (fastest).** Streamers and brands pay clippers per 1,000 views on approved clips. On Whop Content Rewards around $1 per 1K views is common; every campaign shows its own rate, budget left and rules. `campaign-finder` reads them live and never guesses a number. You read the rules, clip only that creator, post, submit the link.
+## Premier lancement : colle ça dans Claude Code
 
-**2. Your own faceless GTA 6 page (bigger, slower).** The built-in playbook runs it: daily content mix, credit rules, caption templates, the launch-day "be first" plan and a learning loop. Platforms don't pay for reposted clips, so the page grows on speed, useful tips and credited clips, then earns through campaigns and partnerships.
+```
+Utilise gtavi-claudecode-fr. Installe ma page de clips GTA 6, pose-moi tes 4 questions en un seul message,
+puis après un seul « oui » : trouve les campagnes de clipping ouvertes, montre-moi les vidéos et les lives
+GTA 6 qui cartonnent, trouve les meilleurs moments du plus gros, découpe mes 3 premiers clips sous-titrés
+en français avec une accroche, vérifie-les contre les règles de la campagne et dis-moi quoi poster où.
+```
 
-No income is promised. Your result depends on speed, picks and hooks, and the scoreboard shows what works.
+## La stratégie qui marche en français
 
-## The rules that make clips win
+Les lives qui font des millions de vues sont américains : IShowSpeed, Kai Cenat, xQc… Le public francophone les regarde, mais **les pages GTA en français sont beaucoup moins nombreuses**. Le plugin prend le moment le plus fou d'un live anglophone et en fait un clip vertical **sous-titré en français**, mise en page réaction comprise (le streamer en haut, le jeu en bas).
 
-- Hook in the first second. Say why to keep watching ("the hidden car nobody found").
-- 7 to 30 seconds. Cut dead air at the start, end on the payoff.
-- Big captions in the safe area. Most people watch muted.
-- Make it yours: hook, tip, commentary. Never a plain re-upload. Credit the creator in your post.
-- Launch day (Nov 19): players in New Zealand and Australia unlock first. Clip their streams, post to X first, then Reels, TikTok and Shorts, every 1 to 2 hours for 48 hours.
-- Every repeated question in your comments becomes a HOW TO post.
-- One test per day. No verdict before 24 hours, prefer the 72 h numbers.
+> Clippe un streamer seulement si sa campagne de clipping est ouverte ou s'il t'a donné son accord, et crédite-le toujours dans la légende (`🎥 @créateur`).
 
-## What's inside
+## Comment on gagne de l'argent avec
 
-| Skill | What you get |
+1. **Les campagnes de clipping (le plus rapide).** Des streamers et des marques paient les clippeurs **pour 1 000 vues validées** (Whop Content Rewards, Clip.tech…). Chaque campagne affiche son taux, son budget restant et ses règles. Le skill `campagnes` les lit en direct et n'invente jamais un chiffre.
+2. **Ta propre page GTA 6 (plus lent, plus gros).** Les plateformes ne paient pas les clips repostés : la page grandit grâce à la vitesse, aux astuces utiles et aux clips crédités, puis rapporte via les campagnes et les partenariats.
+
+Aucun revenu n'est promis. Le tableau des scores (`suivi-resultats`) te montre ce qui marche avec tes vrais chiffres.
+
+## Ce qu'il y a dedans
+
+| Skill | Ce que tu obtiens |
 |---|---|
-| `setup` | Installs ffmpeg, yt-dlp and faster-whisper, asks 4 questions, builds your page folder |
-| `campaign-finder` | Live campaigns: rate per 1K views, budget left, rules, link |
-| `trend-radar` | GTA 6 videos from the last 24 h ranked by views per hour |
-| `stream-finder` | Who is streaming GTA 6 right now, ranked by viewers |
-| `moment-finder` | Best 15 to 40 s moments, scored by loudness spikes, hype words, YouTube "most replayed" and chat spikes |
-| `live-mode` | Records a live stream and cuts a clip every time chat explodes |
-| `twitch-reaction` | Reaction clips like the viral ones: the streamer's face on top, the game below, a big title on the seam. Finds the top GTA 6 Twitch streams with no account, reads chat and finds the webcam by itself |
-| `clip-cutter` | 1080x1920 clip: word-by-word captions, hook box, -14 LUFS. Fill, blurred background or facecam on top |
-| `hook-writer` | 3 hook options per clip |
-| `rule-check` | Length, format, hashtags and banned content checked before you post |
-| `multilang` | One clip in 5 languages: translated word-by-word captions and hook in ES, PT, DE, RU, optional stock-voice hook. Non-English GTA pages are almost empty |
-| `questions-to-posts` | Pulls repeated questions from GTA subreddits and your comments, turns the answered ones into HOW TO posts |
-| `secrets-map` | Builds a database of hidden spots, money, cars and collectibles from clips, with timestamp and credit. Verified ones become evergreen tip posts |
-| `cheat-codes` | All reported GTA 6 cheat codes with unlock tasks and sources, turned into a 4-slide cheat carousel |
-| `playbook` | Your full daily routine and launch-day plan |
-| `learning-loop` | Scoreboard, one test per day, payouts from real numbers only |
+| `installation` | Vérifie Python et ffmpeg, crée le `.venv` de la page, pose 4 questions, prépare le dossier de ta page |
+| `campagnes` | Campagnes de clipping ouvertes : taux pour 1 000 vues, budget restant, règles, lien |
+| `tendances` | Vidéos GTA 6 des dernières 24 h classées par vues par heure |
+| `streams-live` | Qui streame GTA 6 en ce moment, classé par spectateurs (filtre `--lang fr` sur Twitch) |
+| `meilleurs-moments` | Les meilleurs passages de 15 à 40 s : pics de volume, mots d'excitation (français et anglais), passages les plus revus, pics du chat |
+| `mode-live` | Enregistre un live et découpe un clip à chaque fois que le chat s'emballe |
+| `reaction-twitch` | Clips réaction : visage du streamer en haut, jeu en bas, gros titre au milieu |
+| `decoupe-clip` | Clip 1080×1920 : sous-titres mot à mot, accroche, son à -14 LUFS. `--translate fr` pour sous-titrer en français |
+| `accroches` | 3 accroches et titres de réaction en français par clip |
+| `verif-regles` | Durée, format, hashtags, mention et termes interdits vérifiés avant de poster |
+| `multilangue` | Un clip en plusieurs langues, français par défaut, voix de synthèse en option |
+| `questions-en-posts` | Les questions qui reviennent (Reddit, tes commentaires) deviennent des posts « COMMENT … DANS GTA 6 » |
+| `carte-secrets` | Base des lieux cachés, voitures rares et easter eggs, avec horodatage et crédit |
+| `codes-triche` | Les codes de triche signalés, avec sources, en carrousel de 4 slides |
+| `routine` | Ta routine quotidienne complète et le plan du jour de sortie |
+| `suivi-resultats` | Tableau des scores, un test par jour, gains à partir des vrais chiffres uniquement |
+| `pilote-auto` | Pilote automatique (à activer toi-même) : live → clips FR → vérification → publication, puis live suivant |
 
-Nothing is uploaded automatically. You approve every post.
+## La règle absolue : Claude prépare, tu publies
 
-## Hard rules
+Claude ne publie, ne programme, ne répond, ne commente et n'envoie **rien** à ta place, même si Buffer, un outil de publication ou ton navigateur sont connectés. Chaque post, réponse ou message te revient avec son fichier, sa légende et son crédit : tu dis « oui », et c'est toi qui publies.
 
-No leaks, no "play early" or "free download" posts, no piracy, no GTA Online money or AFK bots, no fake news, never pretends to be Rockstar. Every fact needs an official source.
+**Exception, si tu l'actives toi-même : le pilote automatique.** Le skill `pilote-auto` regarde un gros live anglophone, découpe les meilleurs moments en clips sous-titrés en français, les vérifie et les publie sur YouTube Shorts, Instagram Reels et TikTok par les **API officielles**, puis passe au live suivant. Il démarre en mode `test` (rien n'est publié) ; c'est toi qui branches tes comptes ([guide pas à pas](docs/API-OFFICIELLES.md)) et qui passes `mode` à `auto` dans `pilote.json`. Garde-fous : plafond par jour et par plateforme, crédit obligatoire, `verif-regles` obligatoire, jamais de Reddit, de commentaire ni de message, un fichier `PAUSE` dans le dossier arrête tout.
 
-## Run the scripts yourself
+Interdits : fuites, « jouer en avance », piratage, argent ou bots AFK de GTA Online, fausses infos, se faire passer pour Rockstar. Chaque fait doit avoir une source officielle.
+
+## Twitch (optionnel)
+
+YouTube marche sans clé. Pour la liste des streams Twitch, crée une application gratuite sur [dev.twitch.tv/console](https://dev.twitch.tv/console), puis écris toi-même tes clés dans le fichier `.env` du dossier de ta page :
 
 ```
-pip install -r requirements.txt
+TWITCH_CLIENT_ID=ton_client_id
+TWITCH_CLIENT_SECRET=ton_secret
+```
+
+Ne colle jamais tes clés dans le chat. La lecture du chat Twitch en `mode-live` marche sans clé (lecture seule, anonyme).
+
+## Ce qui change par rapport à l'original
+
+Cette édition est une adaptation de [gtavi-claudecode](https://github.com/Bodila51/gtavi-claudecode) de Bodila51 (licence MIT). Le code d'origine (commit `dd95d39`) a été audité ligne par ligne avant l'adaptation : aucun code malveillant. Les changements :
+
+- **Tout en français** : skills, guide quotidien, accroches, sorties des scripts, détection des questions et des mots d'excitation, masquage des injures.
+- **Sous-titres français sur les clips réaction**, traduits par Claude (`--export-sentences` puis `--translations`, argot compris) ou automatiquement (`--translate fr`, une seule requête par clip), et français par défaut dans `multilangue`.
+- **Jamais de publication automatique** : le guide d'origine poussait Claude à publier et répondre seul ; ici, tout passe par ton « oui ».
+- **Installation sans surprise** : environnement `.venv` par page, versions encadrées, plus de mise à jour forcée chaque semaine, ffmpeg installé seulement avec ton accord.
+- **API Twitch officielle** (Helix) à la place de l'API interne de Twitch ; Kick retiré (API interne).
+- Corrections : accents et emojis sur la console Windows, chemins cassés de deux skills, crédit vide et plantage des clips réaction dans `translate.py`.
+
+## Lancer les scripts toi-même
+
+Depuis le dossier de ta page, avec le Python du venv (`.venv\Scripts\python.exe` sous Windows, `.venv/bin/python` ailleurs), en remplaçant `scripts/` par le chemin du plugin :
+
+```
 python scripts/trends.py --query "gta 6" --hours 24
-python scripts/streams.py --query "gta 6"
+python scripts/streams.py --query "gta 6" --lang fr
 python scripts/moments.py "https://www.youtube.com/watch?v=..." --top 8
-python scripts/cut.py jobs/<id> --pick 2 --layout facecam --hook "Nobody noticed this"
-python scripts/check.py jobs/<id>/edits/clip_2.mp4 --campaign campaigns.md
-python scripts/live.py "https://www.youtube.com/watch?v=<live>" --minutes 60
+python scripts/cut.py jobs/<id> --pick 2 --export-sentences        # puis Claude traduit les phrases
+python scripts/cut.py jobs/<id> --pick 2 --layout react --title "Speed a CRAQUÉ en plein braquage" --translations clip_2_fr.txt
+python scripts/check.py jobs/<id>/edits/clip_2.mp4 --campaign campagnes.md --caption "… 🎥 @IShowSpeed"
+python scripts/live.py "https://twitch.tv/<pseudo>" --minutes 60
 ```
 
-Windows, macOS or Linux, Python 3.10+. An NVIDIA GPU makes transcription faster; on the CPU a 12-minute video takes about 5 minutes.
+Windows, macOS ou Linux. Une carte NVIDIA accélère la transcription ; sur le processeur, 12 minutes de vidéo prennent environ 5 minutes.
 
-MIT license.
+## Crédits et licence
+
+- Projet d'origine : [Bodila51/gtavi-claudecode](https://github.com/Bodila51/gtavi-claudecode), licence MIT.
+- Adaptation française : contributeurs de gtavi-claudecode-fr, licence MIT (voir [LICENSE](LICENSE)).
+- Grand Theft Auto, GTA et Rockstar Games sont des marques de leurs propriétaires. Ce dépôt ne contient aucun fichier, logo ni visuel de Rockstar Games : l'identité visuelle « coucher de soleil néon » est originale.

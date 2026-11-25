@@ -1,18 +1,17 @@
 {
-  "name": "gtavi-claudecode",
-  "description": "A faceless GTA 6 clipping desk: find campaigns, trends and moments, cut captioned vertical clips, check the rules, learn from real numbers.",
+  "name": "gtavi-claudecode-fr",
+  "description": "Le bureau de clips GTA 6 en français : trouve les campagnes, les tendances et les meilleurs moments, découpe des clips verticaux sous-titrés, vérifie les règles. Adaptation française de Bodila51/gtavi-claudecode (MIT).",
   "owner": {
-    "name": "Bodila51",
-    "url": "https://github.com/Bodila51"
+    "name": "Contributeurs de gtavi-claudecode-fr"
   },
   "plugins": [
     {
-      "name": "gtavi-claudecode",
+      "name": "gtavi-claudecode-fr",
       "source": "./",
-      "description": "Run a faceless GTA 6 clipping page with the fewest human actions. You approve every post.",
-      "version": "0.1.0",
+      "description": "Le bureau de clips GTA 6 en français. Claude prépare, tu publies.",
+      "version": "1.0.0",
       "category": "productivity",
-      "tags": ["gta6", "clipping", "video", "shorts", "whop"]
+      "tags": ["gta6", "clips", "shorts", "francais"]
     }
   ]
 }

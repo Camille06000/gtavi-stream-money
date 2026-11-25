@@ -1,72 +1,20 @@
-"""Twitch helpers that need no account and no API key.
+"""Outils Twitch sans compte.
 
-top_streams(): Twitch's public web GQL endpoint with the public web Client-Id (same one yt-dlp uses).
-irc_chat():    anonymous IRC read-only chat (justinfan nick, no password).
-vod_chat():    not implemented, see note at the bottom.
+irc_chat() : lecture seule et anonyme du chat via IRC (pseudo justinfan, sans mot de passe).
+             Méthode non officielle mais très répandue ; rien n'est jamais envoyé dans le chat.
+vod_chat() : non implémenté, voir la note en bas.
+
+La liste des streams passe par l'API officielle Helix (voir streams.py). L'adaptation française a retiré
+l'accès à l'API interne GQL de Twitch qu'utilisait l'original.
 """
 import json, random, socket, ssl, sys, threading, time
 from datetime import datetime, timezone
-
-GQL = "https://gql.twitch.tv/gql"
-CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko"
 
 try:
     import truststore
     truststore.inject_into_ssl()
 except Exception:
     pass
-
-
-def gql(query, variables=None):
-    import requests
-    r = requests.post(GQL, json={"query": query, "variables": variables or {}},
-                      headers={"Client-Id": CLIENT_ID}, timeout=15)
-    r.raise_for_status()
-    return r.json()
-
-
-_Q_GAME = """query($name:String!,$n:Int!){ game(name:$name){ displayName streams(first:$n){ edges{ node{
- title viewersCount createdAt previewImageURL(width:640,height:360) broadcaster{ login displayName } } } } } }"""
-_Q_SEARCH = """query($q:String!){ searchCategories(userQuery:$q,first:5){ edges{ node{ ... on Game{ name displayName } } } } }"""
-
-
-def _rows(game):
-    out = []
-    for e in ((game.get("streams") or {}).get("edges") or []):
-        n = e.get("node") or {}
-        b = n.get("broadcaster") or {}
-        if not b.get("login"):
-            continue
-        out.append({"login": b["login"], "name": b.get("displayName") or b["login"], "title": n.get("title") or "",
-                    "viewers": n.get("viewersCount") or 0, "created_at": n.get("createdAt"),
-                    "preview": n.get("previewImageURL"), "url": f"https://twitch.tv/{b['login']}"})
-    return out
-
-
-def top_streams(game="Grand Theft Auto VI", limit=20):
-    """Live streams of a Twitch category, sorted by viewers (desc). Empty list if the category is unknown/offline."""
-    names = [game]
-    try:
-        d = gql(_Q_SEARCH, {"q": game})
-        for e in ((d.get("data") or {}).get("searchCategories") or {}).get("edges") or []:
-            nm = (e.get("node") or {}).get("name")
-            if nm and nm not in names:
-                names.append(nm)
-    except Exception as ex:
-        print(f"twitch category search failed: {ex}", file=sys.stderr)
-    if game.lower() != "gta vi":
-        names.append("Grand Theft Auto VI" if "grand theft" not in game.lower() else "GTA VI")
-    for nm in names:
-        try:
-            g = ((gql(_Q_GAME, {"name": nm, "n": int(limit)}).get("data") or {}).get("game"))
-        except Exception as ex:
-            print(f"twitch gql failed: {ex}", file=sys.stderr)
-            continue
-        if g:
-            rows = _rows(g)
-            if rows:
-                return sorted(rows, key=lambda r: r["viewers"], reverse=True)
-    return []
 
 
 def started_ts(iso):

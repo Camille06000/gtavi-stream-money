@@ -1,13 +1,20 @@
-"""Payout log. Only numbers the human typed; rates are never invented.
+"""Journal des gains. Uniquement les chiffres saisis par l'utilisateur ; aucun taux n'est jamais inventé.
 
-usage: python payouts.py add --platform tiktok --post-url URL --views 12000 --rate-per-1k 0.5 --campaign NAME [--status pending]
-       python payouts.py report
-File: payouts.csv in the current folder (override with --file).
+usage : python payouts.py add --platform tiktok --post-url URL --views 12000 --rate-per-1k 0.5 --campaign NOM [--status "en attente"]
+        python payouts.py report
+Fichier : gains.csv dans le dossier courant (autre fichier avec --file).
 """
 import argparse, csv, sys
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
+
+# Console Windows (cp1252) : forcer l'UTF-8 pour les accents, emojis et espaces fines des titres.
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 FIELDS = ["date", "campaign", "platform", "post_url", "views", "rate_per_1k", "est_payout", "status"]
 
@@ -21,12 +28,12 @@ def read(path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--file", default="payouts.csv")
+    ap.add_argument("--file", default="gains.csv")
     sub = ap.add_subparsers(dest="cmd", required=True)
     a_ = sub.add_parser("add")
     a_.add_argument("--platform", required=True); a_.add_argument("--post-url", required=True)
     a_.add_argument("--views", type=int, required=True); a_.add_argument("--rate-per-1k", type=float, required=True)
-    a_.add_argument("--campaign", required=True); a_.add_argument("--status", default="pending")
+    a_.add_argument("--campaign", required=True); a_.add_argument("--status", default="en attente")
     sub.add_parser("report")
     a = ap.parse_args()
 
@@ -39,20 +46,20 @@ def main():
             w.writerow({"date": date.today().isoformat(), "campaign": a.campaign, "platform": a.platform,
                         "post_url": a.post_url, "views": a.views, "rate_per_1k": a.rate_per_1k,
                         "est_payout": f"{est:.2f}", "status": a.status})
-        print(f"added: {a.campaign} / {a.platform} {a.views} views x {a.rate_per_1k}/1k = {est:.2f} ({a.status})")
+        print(f"ajouté : {a.campaign} / {a.platform} {a.views} vues x {a.rate_per_1k} pour 1000 = {est:.2f} ({a.status})")
         return
 
     rows = read(a.file)
     if not rows:
-        print("no payouts logged yet"); return
+        print("aucun gain enregistré pour l'instant"); return
     tot = defaultdict(lambda: [0, 0, 0.0])
     for r in rows:
         t = tot[r["campaign"]]; t[0] += 1; t[1] += int(r["views"]); t[2] += float(r["est_payout"])
-    print(f"{'campaign':24} {'posts':>5} {'views':>9} {'est_payout':>11}")
+    print(f"{'campagne':24} {'posts':>5} {'vues':>9} {'estimation':>11}")
     for c, (n, v, p) in sorted(tot.items()):
         print(f"{c[:24]:24} {n:>5} {v:>9} {p:>11.2f}")
     print(f"{'TOTAL':24} {sum(t[0] for t in tot.values()):>5} {sum(t[1] for t in tot.values()):>9} {sum(t[2] for t in tot.values()):>11.2f}")
-    print("est_payout = views/1000 x the rate you typed. Estimates, not confirmed earnings.")
+    print("estimation = vues/1000 x le taux saisi. Ce sont des estimations, pas des gains confirmés.")
 
 
 if __name__ == "__main__":
