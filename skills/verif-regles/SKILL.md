@@ -1,6 +1,6 @@
 ---
 name: verif-regles
-description: Vérifier un clip fini avant publication : specs techniques, règles de la campagne et contenus interdits. À utiliser avant chaque upload, ou quand l'utilisateur demande « je peux poster ça ? », « vérifie le clip », « c'est conforme ? ».
+description: "Vérifier un clip fini avant publication : specs techniques, règles de la campagne et contenus interdits. À utiliser avant chaque upload, ou quand l'utilisateur demande « je peux poster ça ? », « vérifie le clip », « c'est conforme ? »."
 ---
 
 # Vérif règles

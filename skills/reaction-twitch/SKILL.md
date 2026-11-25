@@ -1,6 +1,6 @@
 ---
 name: reaction-twitch
-description: Suivre un gros streamer GTA 6 sur Twitch et faire des clips de réaction : visage en haut, jeu en bas, gros titre. À utiliser quand l'utilisateur veut des clips de réaction de streamer, des clips « visage en haut », des clips Twitch, ou demande qui stream GTA 6 en ce moment.
+description: "Suivre un gros streamer GTA 6 sur Twitch et faire des clips de réaction : visage en haut, jeu en bas, gros titre. À utiliser quand l'utilisateur veut des clips de réaction de streamer, des clips « visage en haut », des clips Twitch, ou demande qui stream GTA 6 en ce moment."
 ---
 
 # Clips de réaction Twitch
